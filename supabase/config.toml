@@ -1,0 +1,25 @@
+project_id = "notice-desk"
+
+[api]
+enabled = true
+
+[auth]
+enabled = true
+site_url = "http://localhost:5173"
+additional_redirect_urls = ["http://localhost:5173/auth/callback"]
+
+[auth.external.google]
+enabled = true
+client_id = "env(GOOGLE_CLIENT_ID)"
+secret = "env(GOOGLE_CLIENT_SECRET)"
+
+[auth.external.apple]
+enabled = true
+client_id = "env(APPLE_CLIENT_ID)"
+secret = "env(APPLE_CLIENT_SECRET)"
+
+[functions.draft-notice]
+verify_jwt = true
+
+[functions.razorpay-webhook]
+verify_jwt = false
