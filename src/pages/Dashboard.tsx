@@ -70,11 +70,20 @@ export default function Dashboard() {
       {/* Usage card */}
       {!loading && plan && (
         <div className="mt-8 border border-paper-line bg-white p-5">
-          <div className="flex items-center justify-between text-sm">
-            <span className="font-medium text-ink-950">{plan.name} plan</span>
-            <span className="text-ink-600">
-              {used} of {limit === "unlimited" ? "unlimited" : limit} drafts used this month
-            </span>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <span className="border border-brass/40 bg-brass/10 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-brass-dark">
+                {plan.name}
+              </span>
+              <span className="text-sm text-ink-600">
+                {used} of {limit === "unlimited" ? "unlimited" : limit} drafts used this month
+              </span>
+            </div>
+            {plan.code !== "professional" && (
+              <Link to="/pricing" className="text-sm font-medium text-brass-dark hover:text-brass-light">
+                Upgrade plan →
+              </Link>
+            )}
           </div>
           {limit !== "unlimited" && (
             <div className="mt-3 h-1.5 w-full bg-paper-dim">

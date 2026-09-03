@@ -120,32 +120,82 @@ a short onboarding form, then the dashboard.
 
 ---
 
-## 8. Billing (Razorpay) — what's built vs. what's left
+## 8. Billing (Razorpay) — full setup
 
 The pricing plans themselves live in one file: `src/lib/plans.ts`. Edit the
 `priceInr`, `noticesPerMonth`, and `features` there and every page (landing,
 pricing, dashboard usage bar) updates automatically.
 
-What's included:
-- `supabase/functions/razorpay-webhook/` — a working webhook handler
-  skeleton with signature verification, ready to update `subscriptions` and
-  `profiles.plan` once real events arrive.
+The full checkout flow is now wired up end to end:
+`PricingPage.tsx` → `create-razorpay-subscription` edge function (creates
+the subscription server-side) → Razorpay's Checkout widget opens in the
+browser → on payment, Razorpay calls `razorpay-webhook` → that updates
+`subscriptions` and `profiles.plan`. Here's how to activate it:
 
-What's intentionally left for you to wire up (needs your own Razorpay
-account and business KYC, which nobody can do on your behalf):
-1. Create a Razorpay Plan for Starter (₹999/mo) and Professional (₹2,499/mo).
-2. Replace the "Choose plan" button in `PricingPage.tsx` / `Settings.tsx`
-   with a call that creates a Razorpay subscription (via Razorpay's Node/REST
-   API from a small new edge function) and opens their checkout widget.
-3. Register your deployed webhook URL in the Razorpay dashboard and set
-   `RAZORPAY_WEBHOOK_SECRET` via `supabase secrets set`.
+1. **Create a Razorpay account** at [razorpay.com](https://razorpay.com) and
+   complete business KYC (this is the one step nobody can do on your behalf
+   — Razorpay requires it before live payments work; test mode works
+   immediately without KYC).
 
-Until that's wired up, everyone who signs up sits on the `free_trial` plan
-(3 drafts/month) — which is exactly what you want for your first week of
+2. **Create two Plans** in Razorpay Dashboard → Subscriptions → Plans:
+   - "Starter" — ₹999, monthly billing cycle
+   - "Professional" — ₹2,499, monthly billing cycle
+
+   Each gives you a Plan ID like `plan_ABC123XYZ`.
+
+3. **Get your API keys**: Dashboard → Settings → API Keys → generate a
+   Key ID and Key Secret (use Test Mode keys first, switch to Live once
+   you're ready for real payments).
+
+4. **Set edge function secrets:**
+   ```bash
+   supabase secrets set RAZORPAY_KEY_ID=rzp_test_xxxxxxxxxx
+   supabase secrets set RAZORPAY_KEY_SECRET=your_key_secret
+   supabase secrets set RAZORPAY_PLAN_STARTER=plan_your_starter_plan_id
+   supabase secrets set RAZORPAY_PLAN_PROFESSIONAL=plan_your_professional_plan_id
+   ```
+
+5. **Deploy both Razorpay-related functions:**
+   ```bash
+   supabase functions deploy create-razorpay-subscription
+   supabase functions deploy razorpay-webhook --no-verify-jwt
+   ```
+   (`--no-verify-jwt` matters for the webhook — Razorpay calls it directly,
+   with no Supabase user session attached.)
+
+6. **Fill in the plan map** in
+   `supabase/functions/razorpay-webhook/index.ts` — replace the commented-out
+   lines in `RAZORPAY_PLAN_MAP` with your real Plan IDs from step 2:
+   ```ts
+   const RAZORPAY_PLAN_MAP: Record<string, "starter" | "professional"> = {
+     "plan_your_starter_plan_id": "starter",
+     "plan_your_professional_plan_id": "professional",
+   };
+   ```
+   Redeploy the webhook after editing this.
+
+7. **Register the webhook URL** in Razorpay Dashboard → Settings → Webhooks
+   → Add New Webhook. URL:
+   `https://<your-project-ref>.supabase.co/functions/v1/razorpay-webhook`.
+   Enable these events: `subscription.activated`, `subscription.charged`,
+   `subscription.cancelled`, `subscription.completed`. Razorpay will show
+   you a webhook secret — set it:
+   ```bash
+   supabase secrets set RAZORPAY_WEBHOOK_SECRET=whsec_xxxxxxxxxx
+   ```
+
+8. **Test it**: on `/pricing`, signed in, click "Choose plan" on Starter.
+   You should see Razorpay's checkout widget open. Use
+   [Razorpay's test card numbers](https://razorpay.com/docs/payments/payments/test-card-upi-details/)
+   in Test Mode. On success, the pricing page polls your profile for a few
+   seconds and redirects to Settings once the webhook has flipped your plan.
+
+**Before Razorpay is fully configured**, everyone who signs up sits on the
+`free_trial` plan (3 drafts/month) — which is fine for your first week of
 outreach: let early CAs try it free, and manually flip their `profiles.plan`
 to `starter` in the Supabase table editor once they pay you directly (UPI/
 bank transfer is completely fine for your first 10–20 customers — don't
-block launch on Razorpay integration).
+block launch on finishing this section).
 
 ---
 
