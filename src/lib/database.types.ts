@@ -23,6 +23,7 @@ export type Notice = {
   notice_type: string;
   notice_reference_no: string | null;
   notice_section: string | null;
+  notice_file_path: string | null;
   original_notice_text: string;
   ai_draft_response: string | null;
   final_response: string | null;

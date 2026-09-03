@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AppShell from "../components/AppShell";
 import { supabase } from "../lib/supabaseClient";
+import { useAuth } from "../context/AuthContext";
 
 const NOTICE_TYPES = [
   "GST ASMT-10 (Scrutiny of returns)",
@@ -14,46 +15,98 @@ const NOTICE_TYPES = [
   "Other",
 ];
 
+const ACCEPTED_TYPES = ["application/pdf", "image/png", "image/jpeg"];
+const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB, matches the storage bucket limit
+
 export default function NewNotice() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  const [inputMode, setInputMode] = useState<"upload" | "paste">("upload");
+  const [file, setFile] = useState<File | null>(null);
+  const [noticeText, setNoticeText] = useState("");
+
   const [clientName, setClientName] = useState("");
   const [noticeType, setNoticeType] = useState(NOTICE_TYPES[0]);
   const [referenceNo, setReferenceNo] = useState("");
-  const [noticeText, setNoticeText] = useState("");
   const [caseFacts, setCaseFacts] = useState("");
+
   const [submitting, setSubmitting] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    setError(null);
+    const selected = e.target.files?.[0];
+    if (!selected) return;
+
+    if (!ACCEPTED_TYPES.includes(selected.type)) {
+      setError("Please upload a PDF, PNG, or JPG file.");
+      return;
+    }
+    if (selected.size > MAX_FILE_BYTES) {
+      setError("File is larger than 10 MB. Try a smaller scan or compress the PDF.");
+      return;
+    }
+    setFile(selected);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setSubmitting(true);
     setError(null);
 
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
-    if (!session) {
-      setError("Your session expired. Please sign in again.");
-      setSubmitting(false);
+    if (inputMode === "upload" && !file) {
+      setError("Attach the notice file, or switch to pasting the text instead.");
       return;
     }
+    if (inputMode === "paste" && !noticeText.trim()) {
+      setError("Paste the notice text, or switch to uploading the file instead.");
+      return;
+    }
+    if (!user) {
+      setError("Your session expired. Please sign in again.");
+      return;
+    }
+
+    setSubmitting(true);
+
+    let noticeFilePath: string | null = null;
+
+    if (inputMode === "upload" && file) {
+      setStatusMessage("Uploading notice…");
+      const extension = file.name.split(".").pop()?.toLowerCase() ?? "pdf";
+      const path = `${user.id}/${crypto.randomUUID()}.${extension}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("notice-uploads")
+        .upload(path, file, { contentType: file.type });
+
+      if (uploadError) {
+        setError("Could not upload the file. Please try again.");
+        setSubmitting(false);
+        setStatusMessage(null);
+        return;
+      }
+      noticeFilePath = path;
+    }
+
+    setStatusMessage("Reading the notice and drafting a response…");
 
     const { data, error: fnError } = await supabase.functions.invoke("draft-notice", {
       body: {
         client_name: clientName,
         notice_type: noticeType,
         notice_reference_no: referenceNo || null,
-        original_notice_text: noticeText,
+        notice_file_path: noticeFilePath,
+        original_notice_text: inputMode === "paste" ? noticeText : null,
         case_facts: caseFacts,
       },
     });
 
     setSubmitting(false);
+    setStatusMessage(null);
 
     if (fnError) {
-      // The function returns a structured error body for known cases
-      // (e.g. plan limit reached) — surface that message if present.
       const message =
         (fnError as any)?.context?.body?.error ??
         "Could not generate a draft right now. Please try again.";
@@ -70,7 +123,7 @@ export default function NewNotice() {
     <AppShell>
       <h1 className="text-2xl font-semibold text-ink-950">New draft</h1>
       <p className="mt-1 text-sm text-ink-600">
-        The more case-specific detail you add, the less editing the draft needs.
+        Upload the notice as received — PDF or a photo works. We'll read it directly.
       </p>
 
       <form onSubmit={handleSubmit} className="mt-8 max-w-2xl space-y-6">
@@ -112,16 +165,67 @@ export default function NewNotice() {
           </select>
         </div>
 
+        {/* Input mode toggle */}
         <div>
-          <label className="field-label" htmlFor="noticeText">Notice text</label>
-          <textarea
-            id="noticeText"
-            className="input min-h-[160px]"
-            value={noticeText}
-            onChange={(e) => setNoticeText(e.target.value)}
-            placeholder="Paste the full text of the notice here…"
-            required
-          />
+          <div className="flex gap-1 border border-paper-line bg-paper-dim p-1 text-sm">
+            <button
+              type="button"
+              onClick={() => setInputMode("upload")}
+              className={`flex-1 py-2 font-medium ${
+                inputMode === "upload" ? "bg-white text-ink-950 shadow-sm" : "text-ink-500"
+              }`}
+            >
+              Upload notice file
+            </button>
+            <button
+              type="button"
+              onClick={() => setInputMode("paste")}
+              className={`flex-1 py-2 font-medium ${
+                inputMode === "paste" ? "bg-white text-ink-950 shadow-sm" : "text-ink-500"
+              }`}
+            >
+              Paste text instead
+            </button>
+          </div>
+
+          {inputMode === "upload" ? (
+            <div className="mt-3">
+              <label
+                htmlFor="noticeFile"
+                className="flex min-h-[140px] cursor-pointer flex-col items-center justify-center gap-2 border border-dashed border-ink-900/25 bg-white px-4 py-8 text-center hover:bg-paper-dim"
+              >
+                {file ? (
+                  <>
+                    <span className="text-sm font-medium text-ink-950">{file.name}</span>
+                    <span className="text-xs text-ink-500">
+                      {(file.size / 1024 / 1024).toFixed(2)} MB — click to replace
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-sm font-medium text-ink-950">
+                      Click to upload the notice
+                    </span>
+                    <span className="text-xs text-ink-500">PDF, PNG, or JPG — up to 10 MB</span>
+                  </>
+                )}
+              </label>
+              <input
+                id="noticeFile"
+                type="file"
+                accept={ACCEPTED_TYPES.join(",")}
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+            </div>
+          ) : (
+            <textarea
+              className="input mt-3 min-h-[160px]"
+              value={noticeText}
+              onChange={(e) => setNoticeText(e.target.value)}
+              placeholder="Paste the full text of the notice here…"
+            />
+          )}
         </div>
 
         <div>
@@ -145,7 +249,7 @@ export default function NewNotice() {
         )}
 
         <button type="submit" disabled={submitting} className="btn-primary">
-          {submitting ? "Drafting…" : "Generate draft"}
+          {statusMessage ?? (submitting ? "Drafting…" : "Generate draft")}
         </button>
       </form>
     </AppShell>

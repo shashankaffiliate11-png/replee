@@ -11,6 +11,7 @@ export default function NoticeDetail() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [fileUrl, setFileUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -19,10 +20,19 @@ export default function NoticeDetail() {
       .select("*")
       .eq("id", id)
       .maybeSingle()
-      .then(({ data }) => {
+      .then(async ({ data }) => {
         setNotice(data);
         setEditedText(data?.final_response ?? data?.ai_draft_response ?? "");
         setLoading(false);
+
+        if (data?.notice_file_path) {
+          // Signed URL, not a public one — the bucket is private, so this
+          // link works for a limited time only.
+          const { data: signed } = await supabase.storage
+            .from("notice-uploads")
+            .createSignedUrl(data.notice_file_path, 60 * 15);
+          if (signed) setFileUrl(signed.signedUrl);
+        }
       });
   }, [id]);
 
@@ -95,10 +105,24 @@ export default function NoticeDetail() {
 
       <div className="mt-8 grid gap-6 lg:grid-cols-2">
         <div>
-          <h2 className="field-label">Original notice</h2>
+          <h2 className="field-label">
+            {notice.notice_file_path ? "Notice summary (extracted from upload)" : "Original notice"}
+          </h2>
           <div className="mt-1 max-h-[420px] overflow-y-auto border border-paper-line bg-paper-dim p-4 text-sm text-ink-700 whitespace-pre-wrap">
             {notice.original_notice_text}
           </div>
+          {notice.notice_file_path && (
+            <a
+              href={fileUrl ?? undefined}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`mt-2 inline-block text-sm text-brass-dark underline ${
+                fileUrl ? "" : "pointer-events-none opacity-50"
+              }`}
+            >
+              {fileUrl ? "View original uploaded file" : "Loading file link…"}
+            </a>
+          )}
         </div>
 
         <div>

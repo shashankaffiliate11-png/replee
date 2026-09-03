@@ -4,6 +4,12 @@
 // Runs server-side so the ANTHROPIC_API_KEY never reaches the browser, and so
 // plan-limit checks can't be bypassed by a client tampering with the request.
 //
+// Accepts EITHER:
+//   - notice_file_path: a path in the "notice-uploads" storage bucket
+//     (the actual PDF/scanned image of the notice, read natively by Claude)
+//   - original_notice_text: pasted plain text of the notice
+// If both are absent, the request is rejected.
+//
 // Deploy with:
 //   npx supabase functions deploy draft-notice
 // Set secrets with:
@@ -17,22 +23,45 @@ const PLAN_LIMITS: Record<string, number | "unlimited"> = {
   professional: "unlimited",
 };
 
+const MIME_BY_EXTENSION: Record<string, string> = {
+  pdf: "application/pdf",
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+};
+
 const SYSTEM_PROMPT = `You are drafting a formal written response to an Indian GST or Income Tax
 department notice, for a practicing Chartered Accountant to review, edit, and
 file on behalf of their client.
 
-Rules:
+The notice will be provided either as pasted text, or as an attached PDF or
+photo of the actual notice — in the latter case, read the document directly;
+it may be a scan, so some parts (stamps, signatures, faint text) may not be
+perfectly legible. Extract what you can and flag anything illegible.
+
+Respond in exactly this format, with both section headers present and
+nothing before the first header:
+
+NOTICE_SUMMARY:
+A plain 2-4 line summary of what the notice says: the notice type, the
+issue raised, the amount/period involved if stated, and the deadline if
+stated. Write this as if briefing the CA before they read the draft below.
+
+DRAFT_RESPONSE:
+The formal response itself, structured as: (1) reference line citing the
+notice number/date/section, (2) a brief acknowledgment, (3) numbered
+submissions addressing each point raised in the notice using the case facts
+provided, (4) a closing paragraph requesting the notice be disposed of /
+dropped, as appropriate, (5) a line noting enclosures if the case facts
+mention any supporting documents.
+
+Rules for the draft response:
 - Write in the register used in real submissions to Indian tax authorities:
   formal, numbered paragraphs, precise, no filler.
-- Structure the response as: (1) reference line citing the notice number/date/
-  section, (2) a brief acknowledgment, (3) numbered submissions addressing
-  each point raised in the notice using the case facts provided, (4)
-  a closing paragraph requesting the notice be disposed of / dropped, as
-  appropriate, (5) a line noting enclosures if the case facts mention any
-  supporting documents.
-- Use only the facts given. Do NOT invent figures, dates, section numbers, or
-  precedents that were not provided. If a fact needed to make the response
-  complete is missing, add a clearly marked placeholder like
+- Use only the facts given (from the notice itself and the case facts
+  provided). Do NOT invent figures, dates, section numbers, or precedents
+  that were not provided. If a fact needed to make the response complete is
+  missing, add a clearly marked placeholder like
   "[CONFIRM: turnover figure for Q3]" rather than guessing.
 - This is a DRAFT for professional review, not a final filing. Do not add
   disclaimers about this within the draft text itself — the product surfaces
@@ -55,7 +84,6 @@ Deno.serve(async (req) => {
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
   const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY")!;
 
-  // Client scoped to the caller's JWT, used only to identify who is calling.
   const callerClient = createClient(supabaseUrl, anonKey, {
     global: { headers: { Authorization: authHeader } },
   });
@@ -68,13 +96,14 @@ Deno.serve(async (req) => {
     return json({ error: "Not authenticated" }, 401);
   }
 
-  // Service-role client for writes that must not be spoofable by the client
-  // (usage counters, plan enforcement).
   const admin = createClient(supabaseUrl, serviceRoleKey);
 
   const body = await req.json().catch(() => null);
-  if (!body || !body.client_name || !body.notice_type || !body.original_notice_text) {
+  if (!body || !body.client_name || !body.notice_type) {
     return json({ error: "Missing required fields" }, 400);
+  }
+  if (!body.notice_file_path && !body.original_notice_text) {
+    return json({ error: "Attach the notice file, or paste the notice text." }, 400);
   }
 
   // ── 1. Check plan limit ──────────────────────────────────────────────
@@ -109,23 +138,63 @@ Deno.serve(async (req) => {
     );
   }
 
-  // ── 2. Call Claude to draft the response ────────────────────────────
-  const userPrompt = `Notice type: ${body.notice_type}
+  // ── 2. Build the message content for Claude ─────────────────────────
+  // Either a native document/image block (uploaded file) or plain pasted
+  // text — never both, the frontend only sends one.
+  const contentBlocks: unknown[] = [];
+
+  if (body.notice_file_path) {
+    // Security: notice_file_path must belong to this user's own folder in
+    // the bucket (paths are "<user_id>/<uuid>-<filename>"), otherwise a
+    // tampered request could read another user's uploaded notice.
+    if (!String(body.notice_file_path).startsWith(`${user.id}/`)) {
+      return json({ error: "Invalid file reference." }, 403);
+    }
+
+    const { data: fileBlob, error: downloadError } = await admin.storage
+      .from("notice-uploads")
+      .download(body.notice_file_path);
+
+    if (downloadError || !fileBlob) {
+      console.error("Storage download error:", downloadError);
+      return json({ error: "Could not read the uploaded file. Please try uploading it again." }, 500);
+    }
+
+    const extension = String(body.notice_file_path).split(".").pop()?.toLowerCase() ?? "";
+    const mediaType = MIME_BY_EXTENSION[extension];
+    if (!mediaType) {
+      return json({ error: "Unsupported file type. Upload a PDF, PNG, or JPG." }, 400);
+    }
+
+    const arrayBuffer = await fileBlob.arrayBuffer();
+    const base64Data = arrayBufferToBase64(arrayBuffer);
+
+    contentBlocks.push({
+      type: mediaType === "application/pdf" ? "document" : "image",
+      source: { type: "base64", media_type: mediaType, data: base64Data },
+    });
+  }
+
+  const textPrompt = `Notice type: ${body.notice_type}
 Notice reference: ${body.notice_reference_no ?? "not provided"}
 Client name: ${body.client_name}
 
-Full notice text:
-"""
-${body.original_notice_text}
-"""
+${
+  body.notice_file_path
+    ? "The notice is attached above as a document. Read it directly."
+    : `Full notice text:\n"""\n${body.original_notice_text}\n"""`
+}
 
 Case facts and submissions to include:
 """
-${body.case_facts ?? "none provided — draft using only the notice text"}
+${body.case_facts ?? "none provided — draft using only the notice"}
 """
 
-Draft the response now.`;
+Respond now in the NOTICE_SUMMARY / DRAFT_RESPONSE format described in your instructions.`;
 
+  contentBlocks.push({ type: "text", text: textPrompt });
+
+  // ── 3. Call Claude ───────────────────────────────────────────────────
   const claudeRes = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -135,9 +204,9 @@ Draft the response now.`;
     },
     body: JSON.stringify({
       model: "claude-sonnet-4-6",
-      max_tokens: 2000,
+      max_tokens: 2500,
       system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: userPrompt }],
+      messages: [{ role: "user", content: contentBlocks }],
     }),
   });
 
@@ -148,16 +217,18 @@ Draft the response now.`;
   }
 
   const claudeData = await claudeRes.json();
-  const draftText = claudeData.content
+  const rawText = claudeData.content
     ?.map((block: { type: string; text?: string }) => (block.type === "text" ? block.text : ""))
     .join("\n")
     .trim();
 
-  if (!draftText) {
+  if (!rawText) {
     return json({ error: "Draft generation returned no content. Please try again." }, 502);
   }
 
-  // ── 3. Save the notice and increment usage ──────────────────────────
+  const { summary, draft } = splitSummaryAndDraft(rawText);
+
+  // ── 4. Save the notice and increment usage ──────────────────────────
   const { data: inserted, error: insertError } = await admin
     .from("notices")
     .insert({
@@ -165,9 +236,10 @@ Draft the response now.`;
       client_name: body.client_name,
       notice_type: body.notice_type,
       notice_reference_no: body.notice_reference_no ?? null,
-      original_notice_text: body.original_notice_text,
-      ai_draft_response: draftText,
-      final_response: draftText,
+      notice_file_path: body.notice_file_path ?? null,
+      original_notice_text: body.notice_file_path ? summary : body.original_notice_text,
+      ai_draft_response: draft,
+      final_response: draft,
       status: "drafted",
     })
     .select("id")
@@ -187,6 +259,34 @@ Draft the response now.`;
 
   return json({ notice_id: inserted.id });
 });
+
+// Splits the model's "NOTICE_SUMMARY: ... DRAFT_RESPONSE: ..." output into
+// its two parts. Falls back gracefully if the model didn't follow the
+// format exactly, so a formatting slip never loses the draft entirely.
+function splitSummaryAndDraft(raw: string): { summary: string; draft: string } {
+  const summaryMatch = raw.match(/NOTICE_SUMMARY:\s*([\s\S]*?)\s*DRAFT_RESPONSE:/i);
+  const draftMatch = raw.match(/DRAFT_RESPONSE:\s*([\s\S]*)/i);
+
+  if (summaryMatch && draftMatch) {
+    return { summary: summaryMatch[1].trim(), draft: draftMatch[1].trim() };
+  }
+  // Model didn't use the expected headers — treat the whole thing as the
+  // draft rather than losing content.
+  return { summary: "Notice summary unavailable — see draft below.", draft: raw };
+}
+
+// Deno has no Buffer global; encode in chunks to avoid call-stack limits
+// on large PDFs when using String.fromCharCode(...bytes) directly.
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary);
+}
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
