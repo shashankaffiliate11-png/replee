@@ -78,12 +78,12 @@ export default function AppShell({ children }: { children: ReactNode }) {
 function SealMark() {
   return (
     <svg width="24" height="24" viewBox="0 0 64 64" fill="none">
-      <rect width="64" height="64" rx="10" fill="#152140" />
-      <path d="M18 14h20l10 10v26a2 2 0 0 1-2 2H18a2 2 0 0 1-2-2V16a2 2 0 0 1 2-2z" fill="#FAF7F0" />
-      <path d="M38 14v8a2 2 0 0 0 2 2h8" fill="#C79445" />
-      <line x1="22" y1="34" x2="42" y2="34" stroke="#152140" strokeWidth="2" />
-      <line x1="22" y1="40" x2="42" y2="40" stroke="#152140" strokeWidth="2" />
-      <line x1="22" y1="46" x2="34" y2="46" stroke="#152140" strokeWidth="2" />
+      <rect width="64" height="64" rx="10" fill="#0F0F0F" />
+      <path d="M18 14h20l10 10v26a2 2 0 0 1-2 2H18a2 2 0 0 1-2-2V16a2 2 0 0 1 2-2z" fill="#FFFFFF" />
+      <path d="M38 14v8a2 2 0 0 0 2 2h8" fill="#FBBF24" />
+      <line x1="22" y1="34" x2="42" y2="34" stroke="#0F0F0F" strokeWidth="2" />
+      <line x1="22" y1="40" x2="42" y2="40" stroke="#0F0F0F" strokeWidth="2" />
+      <line x1="22" y1="46" x2="34" y2="46" stroke="#0F0F0F" strokeWidth="2" />
     </svg>
   );
 }

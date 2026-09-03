@@ -44,7 +44,7 @@ const MIME_BY_EXTENSION: Record<string, string> = {
   jpeg: "image/jpeg",
 };
 
-const GEMINI_MODEL = "gemini-2.5-flash"; // swap to gemini-2.5-pro for higher quality, higher cost
+const GEMINI_MODEL = "gemini-3.6-flash"; // current GA Flash model as of Sept 2026
 const GEMINI_ENDPOINT =
   `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
@@ -228,7 +228,13 @@ Respond now in the NOTICE_SUMMARY / DRAFT_RESPONSE format described in your inst
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
       contents: [{ role: "user", parts }],
-      generationConfig: { temperature: 0.3, maxOutputTokens: 2500 },
+      // Gemini 3.x models ignore temperature/top-p/top-k entirely; use
+      // thinkingLevel instead. "low" favors faster, more literal drafting
+      // over creative variation, which suits formal legal-register text.
+      generationConfig: {
+        maxOutputTokens: 2500,
+        thinkingConfig: { thinkingLevel: "low" },
+      },
     }),
   });
 

@@ -58,7 +58,7 @@ export async function openRazorpayCheckout(opts: {
     subscription_id: opts.subscriptionId,
     name: "NoticeDesk",
     description: `${opts.planName} plan`,
-    theme: { color: "#152140" },
+    theme: { color: "#0F0F0F" },
     prefill: { email: opts.prefillEmail, name: opts.prefillName },
     handler: () => opts.onSuccess(),
     modal: { ondismiss: () => opts.onDismiss() },

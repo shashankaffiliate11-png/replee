@@ -13,7 +13,7 @@
     font-family: "Source Serif 4", Georgia, serif;
   }
   :focus-visible {
-    outline: 2px solid #A9762F;
+    outline: 2px solid #F5A623;
     outline-offset: 2px;
   }
   @media (prefers-reduced-motion: reduce) {
