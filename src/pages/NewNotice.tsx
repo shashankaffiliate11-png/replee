@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AppShell from "../components/AppShell";
+import NoticeExtractionForm from "../components/NoticeExtractionForm";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../context/AuthContext";
+import { NoticeData } from "../types/notice";
 
 const NOTICE_TYPES = [
   "GST ASMT-10 (Scrutiny of returns)",
@@ -16,7 +18,7 @@ const NOTICE_TYPES = [
 ];
 
 const ACCEPTED_TYPES = ["application/pdf", "image/png", "image/jpeg"];
-const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB, matches the storage bucket limit
+const MAX_FILE_BYTES = 10 * 1024 * 1024;
 
 export default function NewNotice() {
   const navigate = useNavigate();
@@ -30,10 +32,24 @@ export default function NewNotice() {
   const [noticeType, setNoticeType] = useState(NOTICE_TYPES[0]);
   const [referenceNo, setReferenceNo] = useState("");
   const [caseFacts, setCaseFacts] = useState("");
+  const [extractedNoticeData, setExtractedNoticeData] = useState<NoticeData | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  function handleDataConfirmed(data: NoticeData, uploadedFile: File) {
+    setExtractedNoticeData(data);
+    setFile(uploadedFile);
+    if (data.notice_ref_no) setReferenceNo(data.notice_ref_no);
+    if (data.discrepancy_details) setCaseFacts(data.discrepancy_details);
+    if (data.notice_type) {
+      const matchedType = NOTICE_TYPES.find((t) =>
+        t.toLowerCase().includes(data.notice_type!.toLowerCase())
+      );
+      if (matchedType) setNoticeType(matchedType);
+    }
+  }
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     setError(null);
@@ -100,6 +116,7 @@ export default function NewNotice() {
         notice_file_path: noticeFilePath,
         original_notice_text: inputMode === "paste" ? noticeText : null,
         case_facts: caseFacts,
+        extracted_data: extractedNoticeData,
       },
     });
 
@@ -123,8 +140,14 @@ export default function NewNotice() {
     <AppShell>
       <h1 className="text-2xl font-semibold text-ink-950">New draft</h1>
       <p className="mt-1 text-sm text-ink-600">
-        Upload the notice as received — PDF or a photo works. We'll read it directly.
+        Extract information from notice PDF and generate an automated reply draft.
       </p>
+
+      {inputMode === "upload" && (
+        <div className="mt-6 max-w-2xl">
+          <NoticeExtractionForm onDataConfirmed={handleDataConfirmed} />
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="mt-8 max-w-2xl space-y-6">
         <div className="grid gap-4 sm:grid-cols-2">
@@ -140,7 +163,7 @@ export default function NewNotice() {
             />
           </div>
           <div>
-            <label className="field-label" htmlFor="referenceNo">Notice reference no. (optional)</label>
+            <label className="field-label" htmlFor="referenceNo">Notice reference no.</label>
             <input
               id="referenceNo"
               className="input"
@@ -165,7 +188,6 @@ export default function NewNotice() {
           </select>
         </div>
 
-        {/* Input mode toggle */}
         <div>
           <div className="flex gap-1 border border-paper-line bg-paper-dim p-1 text-sm">
             <button
@@ -189,34 +211,8 @@ export default function NewNotice() {
           </div>
 
           {inputMode === "upload" ? (
-            <div className="mt-3">
-              <label
-                htmlFor="noticeFile"
-                className="flex min-h-[140px] cursor-pointer flex-col items-center justify-center gap-2 border border-dashed border-ink-900/25 bg-white px-4 py-8 text-center hover:bg-paper-dim"
-              >
-                {file ? (
-                  <>
-                    <span className="text-sm font-medium text-ink-950">{file.name}</span>
-                    <span className="text-xs text-ink-500">
-                      {(file.size / 1024 / 1024).toFixed(2)} MB — click to replace
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <span className="text-sm font-medium text-ink-950">
-                      Click to upload the notice
-                    </span>
-                    <span className="text-xs text-ink-500">PDF, PNG, or JPG — up to 10 MB</span>
-                  </>
-                )}
-              </label>
-              <input
-                id="noticeFile"
-                type="file"
-                accept={ACCEPTED_TYPES.join(",")}
-                onChange={handleFileSelect}
-                className="hidden"
-              />
+            <div className="mt-3 text-xs text-ink-600">
+              {file ? `Attached File: ${file.name}` : "Upload PDF using the extraction form above."}
             </div>
           ) : (
             <textarea
@@ -230,14 +226,14 @@ export default function NewNotice() {
 
         <div>
           <label className="field-label" htmlFor="caseFacts">
-            Case facts for your response
+            Case facts / Discrepancy details
           </label>
           <textarea
             id="caseFacts"
             className="input min-h-[140px]"
             value={caseFacts}
             onChange={(e) => setCaseFacts(e.target.value)}
-            placeholder="E.g. The mismatch is due to invoices raised in March but reflected in the recipient's GSTR-2A in April. Reconciliation is attached. Client has no prior defaults."
+            placeholder="Details about the notice..."
             required
           />
         </div>
