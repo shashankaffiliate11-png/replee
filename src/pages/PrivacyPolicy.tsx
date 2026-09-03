@@ -12,7 +12,7 @@ export default function PrivacyPolicy() {
 
       <main className="mx-auto max-w-3xl px-6 py-14">
         <h1 className="text-3xl font-semibold text-ink-950">Privacy Policy</h1>
-        <p className="mt-2 text-sm text-ink-500">Last updated: [DATE — fill in before publishing]</p>
+        <p className="mt-2 text-sm text-ink-500">Last updated: Sept 3rd 2026</p>
 
         <div className="prose-legal mt-10 space-y-8 text-sm leading-relaxed text-ink-700">
           <section>
