@@ -1,296 +1,242 @@
-// Supabase Edge Function: draft-notice
+// supabase/functions/draft-notice/index.ts
 //
-// Called from src/pages/NewNotice.tsx via supabase.functions.invoke("draft-notice").
-// Runs server-side so the ANTHROPIC_API_KEY never reaches the browser, and so
-// plan-limit checks can't be bypassed by a client tampering with the request.
+// NoticeDesk — draft-notice Edge Function (Gemini version)
 //
-// Accepts EITHER:
-//   - notice_file_path: a path in the "notice-uploads" storage bucket
-//     (the actual PDF/scanned image of the notice, read natively by Claude)
-//   - original_notice_text: pasted plain text of the notice
-// If both are absent, the request is rejected.
+// What this does:
+// 1. Authenticates the calling CA via their Supabase session.
+// 2. Checks their plan's draft limit for the current billing period.
+// 3. Reads the tax notice (pasted text, or an uploaded file from Storage —
+//    PDF/image, sent to Gemini natively).
+// 4. Calls Google Gemini to generate a formal draft response.
+// 5. Saves the draft to the database and returns it to the browser.
 //
-// Deploy with:
-//   npx supabase functions deploy draft-notice
-// Set secrets with:
-//   npx supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
+// NOTE: I don't have your exact table/column names (they were in the
+// original Anthropic version of this file, which I haven't seen), so I've
+// used sensible guesses based on what you described earlier:
+//   - `profiles` table with `plan` and `drafts_used_this_period` columns
+//   - `drafts` table with `user_id`, `notice_text`, `draft_text`, `created_at`
+//   - `notices` bucket in Supabase Storage for uploaded files
+// Search for "ADJUST ME" below and match these to your real schema before
+// deploying — the drafting/Gemini logic itself doesn't need to change.
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const PLAN_LIMITS: Record<string, number | "unlimited"> = {
+const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+// Plan limits — ADJUST ME to match your actual pricing tiers.
+const PLAN_LIMITS: Record<string, number> = {
   free_trial: 3,
   starter: 15,
-  professional: "unlimited",
+  professional: 50,
 };
 
-const MIME_BY_EXTENSION: Record<string, string> = {
-  pdf: "application/pdf",
-  png: "image/png",
-  jpg: "image/jpeg",
-  jpeg: "image/jpeg",
+const GEMINI_MODEL = "gemini-2.5-flash"; // swap to gemini-2.5-pro for higher quality, higher cost
+const GEMINI_ENDPOINT =
+  `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*", // ADJUST ME: lock this down to your domain in production
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
 };
 
-const SYSTEM_PROMPT = `You are drafting a formal written response to an Indian GST or Income Tax
-department notice, for a practicing Chartered Accountant to review, edit, and
-file on behalf of their client.
-
-The notice will be provided either as pasted text, or as an attached PDF or
-photo of the actual notice — in the latter case, read the document directly;
-it may be a scan, so some parts (stamps, signatures, faint text) may not be
-perfectly legible. Extract what you can and flag anything illegible.
-
-Respond in exactly this format, with both section headers present and
-nothing before the first header:
-
-NOTICE_SUMMARY:
-A plain 2-4 line summary of what the notice says: the notice type, the
-issue raised, the amount/period involved if stated, and the deadline if
-stated. Write this as if briefing the CA before they read the draft below.
-
-DRAFT_RESPONSE:
-The formal response itself, structured as: (1) reference line citing the
-notice number/date/section, (2) a brief acknowledgment, (3) numbered
-submissions addressing each point raised in the notice using the case facts
-provided, (4) a closing paragraph requesting the notice be disposed of /
-dropped, as appropriate, (5) a line noting enclosures if the case facts
-mention any supporting documents.
-
-Rules for the draft response:
-- Write in the register used in real submissions to Indian tax authorities:
-  formal, numbered paragraphs, precise, no filler.
-- Use only the facts given (from the notice itself and the case facts
-  provided). Do NOT invent figures, dates, section numbers, or precedents
-  that were not provided. If a fact needed to make the response complete is
-  missing, add a clearly marked placeholder like
-  "[CONFIRM: turnover figure for Q3]" rather than guessing.
-- This is a DRAFT for professional review, not a final filing. Do not add
-  disclaimers about this within the draft text itself — the product surfaces
-  that separately.
-- Do not fabricate case law citations unless they were supplied in the case
-  facts.`;
-
-Deno.serve(async (req) => {
-  if (req.method !== "POST") {
-    return json({ error: "Method not allowed" }, 405);
+Deno.serve(async (req: Request) => {
+  // Handle CORS preflight
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
   }
 
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader) {
-    return json({ error: "Missing authorization" }, 401);
-  }
-
-  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-  const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY")!;
-
-  const callerClient = createClient(supabaseUrl, anonKey, {
-    global: { headers: { Authorization: authHeader } },
-  });
-  const {
-    data: { user },
-    error: userError,
-  } = await callerClient.auth.getUser();
-
-  if (userError || !user) {
-    return json({ error: "Not authenticated" }, 401);
-  }
-
-  const admin = createClient(supabaseUrl, serviceRoleKey);
-
-  const body = await req.json().catch(() => null);
-  if (!body || !body.client_name || !body.notice_type) {
-    return json({ error: "Missing required fields" }, 400);
-  }
-  if (!body.notice_file_path && !body.original_notice_text) {
-    return json({ error: "Attach the notice file, or paste the notice text." }, 400);
-  }
-
-  // ── 1. Check plan limit ──────────────────────────────────────────────
-  const { data: profile } = await admin
-    .from("profiles")
-    .select("plan")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  const plan = profile?.plan ?? "free_trial";
-  const limit = PLAN_LIMITS[plan] ?? PLAN_LIMITS.free_trial;
-
-  const periodMonth = new Date();
-  periodMonth.setDate(1);
-  const periodMonthStr = periodMonth.toISOString().slice(0, 10);
-
-  const { data: usageRow } = await admin
-    .from("usage_counters")
-    .select("notices_used")
-    .eq("user_id", user.id)
-    .eq("period_month", periodMonthStr)
-    .maybeSingle();
-
-  const used = usageRow?.notices_used ?? 0;
-
-  if (limit !== "unlimited" && used >= limit) {
-    return json(
-      {
-        error: `You've used all ${limit} drafts on your ${plan.replace("_", " ")} plan this month. Upgrade to keep drafting.`,
-      },
-      403
-    );
-  }
-
-  // ── 2. Build the message content for Claude ─────────────────────────
-  // Either a native document/image block (uploaded file) or plain pasted
-  // text — never both, the frontend only sends one.
-  const contentBlocks: unknown[] = [];
-
-  if (body.notice_file_path) {
-    // Security: notice_file_path must belong to this user's own folder in
-    // the bucket (paths are "<user_id>/<uuid>-<filename>"), otherwise a
-    // tampered request could read another user's uploaded notice.
-    if (!String(body.notice_file_path).startsWith(`${user.id}/`)) {
-      return json({ error: "Invalid file reference." }, 403);
+  try {
+    if (!GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY secret is not set in Supabase.");
     }
 
-    const { data: fileBlob, error: downloadError } = await admin.storage
-      .from("notice-uploads")
-      .download(body.notice_file_path);
-
-    if (downloadError || !fileBlob) {
-      console.error("Storage download error:", downloadError);
-      return json({ error: "Could not read the uploaded file. Please try uploading it again." }, 500);
+    // ---- 1. Authenticate the caller ----------------------------------
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return jsonError("Missing Authorization header.", 401);
     }
 
-    const extension = String(body.notice_file_path).split(".").pop()?.toLowerCase() ?? "";
-    const mediaType = MIME_BY_EXTENSION[extension];
-    if (!mediaType) {
-      return json({ error: "Unsupported file type. Upload a PDF, PNG, or JPG." }, 400);
-    }
-
-    const arrayBuffer = await fileBlob.arrayBuffer();
-    const base64Data = arrayBufferToBase64(arrayBuffer);
-
-    contentBlocks.push({
-      type: mediaType === "application/pdf" ? "document" : "image",
-      source: { type: "base64", media_type: mediaType, data: base64Data },
+    const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!, {
+      global: { headers: { Authorization: authHeader } },
     });
-  }
 
-  const textPrompt = `Notice type: ${body.notice_type}
-Notice reference: ${body.notice_reference_no ?? "not provided"}
-Client name: ${body.client_name}
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
 
-${
-  body.notice_file_path
-    ? "The notice is attached above as a document. Read it directly."
-    : `Full notice text:\n"""\n${body.original_notice_text}\n"""`
-}
+    if (authError || !user) {
+      return jsonError("Invalid or expired session.", 401);
+    }
 
-Case facts and submissions to include:
-"""
-${body.case_facts ?? "none provided — draft using only the notice"}
-"""
+    // ---- 2. Check plan limit ------------------------------------------
+    // ADJUST ME: match to your real `profiles` table columns.
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("plan, drafts_used_this_period")
+      .eq("id", user.id)
+      .single();
 
-Respond now in the NOTICE_SUMMARY / DRAFT_RESPONSE format described in your instructions.`;
+    if (profileError || !profile) {
+      return jsonError("Could not load user plan.", 500);
+    }
 
-  contentBlocks.push({ type: "text", text: textPrompt });
+    const limit = PLAN_LIMITS[profile.plan] ?? 0;
+    if (profile.drafts_used_this_period >= limit) {
+      return jsonError(
+        `You've used all ${limit} drafts on your current plan. Please upgrade to continue.`,
+        403,
+      );
+    }
 
-  // ── 3. Call Claude ───────────────────────────────────────────────────
-  const claudeRes = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": anthropicKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-6",
-      max_tokens: 2500,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: contentBlocks }],
-    }),
-  });
+    // ---- 3. Read the notice (text and/or uploaded file) ----------------
+    const body = await req.json();
+    const noticeText: string | undefined = body.noticeText;
+    const noticeFilePath: string | undefined = body.noticeFilePath; // path in Storage, if a file was uploaded
 
-  if (!claudeRes.ok) {
-    const errText = await claudeRes.text();
-    console.error("Claude API error:", errText);
-    return json({ error: "Draft generation failed. Please try again." }, 502);
-  }
+    if (!noticeText && !noticeFilePath) {
+      return jsonError("No notice text or file provided.", 400);
+    }
 
-  const claudeData = await claudeRes.json();
-  const rawText = claudeData.content
-    ?.map((block: { type: string; text?: string }) => (block.type === "text" ? block.text : ""))
-    .join("\n")
-    .trim();
+    // Gemini's "contents" array can mix text parts and inline file parts.
+    // deno-lint-ignore no-explicit-any
+    const parts: any[] = [];
 
-  if (!rawText) {
-    return json({ error: "Draft generation returned no content. Please try again." }, 502);
-  }
+    if (noticeFilePath) {
+      // ADJUST ME: bucket name — this assumes a "notices" bucket.
+      const { data: fileData, error: fileError } = await supabase.storage
+        .from("notices")
+        .download(noticeFilePath);
 
-  const { summary, draft } = splitSummaryAndDraft(rawText);
+      if (fileError || !fileData) {
+        return jsonError("Could not read the uploaded notice file.", 500);
+      }
 
-  // ── 4. Save the notice and increment usage ──────────────────────────
-  const { data: inserted, error: insertError } = await admin
-    .from("notices")
-    .insert({
-      user_id: user.id,
-      client_name: body.client_name,
-      notice_type: body.notice_type,
-      notice_reference_no: body.notice_reference_no ?? null,
-      notice_file_path: body.notice_file_path ?? null,
-      original_notice_text: body.notice_file_path ? summary : body.original_notice_text,
-      ai_draft_response: draft,
-      final_response: draft,
-      status: "drafted",
-    })
-    .select("id")
-    .single();
+      const arrayBuffer = await fileData.arrayBuffer();
+      const base64 = encodeBase64(arrayBuffer);
+      const mimeType = guessMimeType(noticeFilePath);
 
-  if (insertError || !inserted) {
-    console.error("Insert error:", insertError);
-    return json({ error: "Draft generated but could not be saved. Please try again." }, 500);
-  }
+      parts.push({
+        inline_data: {
+          mime_type: mimeType,
+          data: base64,
+        },
+      });
+    }
 
-  await admin
-    .from("usage_counters")
-    .upsert(
-      { user_id: user.id, period_month: periodMonthStr, notices_used: used + 1 },
-      { onConflict: "user_id,period_month" }
+    parts.push({
+      text: buildPrompt(noticeText),
+    });
+
+    // ---- 4. Call Gemini --------------------------------------------------
+    const geminiResponse = await fetch(
+      `${GEMINI_ENDPOINT}?key=${GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts }],
+          generationConfig: {
+            temperature: 0.3,
+            maxOutputTokens: 2500,
+          },
+        }),
+      },
     );
 
-  return json({ notice_id: inserted.id });
+    if (!geminiResponse.ok) {
+      const errText = await geminiResponse.text();
+      console.error("Gemini API error:", errText);
+      return jsonError("The AI drafting service failed. Please try again.", 502);
+    }
+
+    const geminiData = await geminiResponse.json();
+    const draftText: string | undefined =
+      geminiData?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (!draftText) {
+      console.error("Unexpected Gemini response shape:", JSON.stringify(geminiData));
+      return jsonError("The AI did not return a draft. Please try again.", 502);
+    }
+
+    // ---- 5. Save the draft and update usage count -------------------------
+    // ADJUST ME: match to your real `drafts` table columns.
+    const { data: savedDraft, error: saveError } = await supabase
+      .from("drafts")
+      .insert({
+        user_id: user.id,
+        notice_text: noticeText ?? null,
+        notice_file_path: noticeFilePath ?? null,
+        draft_text: draftText,
+      })
+      .select()
+      .single();
+
+    if (saveError) {
+      console.error("Failed to save draft:", saveError);
+      return jsonError("Draft generated, but saving it failed.", 500);
+    }
+
+    await supabase
+      .from("profiles")
+      .update({ drafts_used_this_period: profile.drafts_used_this_period + 1 })
+      .eq("id", user.id);
+
+    // ---- 6. Return the draft to the browser -------------------------------
+    return new Response(
+      JSON.stringify({ draft: draftText, draftId: savedDraft.id }),
+      {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
+  } catch (err) {
+    console.error("Unhandled error in draft-notice:", err);
+    return jsonError("Something went wrong generating the draft.", 500);
+  }
 });
 
-// Splits the model's "NOTICE_SUMMARY: ... DRAFT_RESPONSE: ..." output into
-// its two parts. Falls back gracefully if the model didn't follow the
-// format exactly, so a formatting slip never loses the draft entirely.
-function splitSummaryAndDraft(raw: string): { summary: string; draft: string } {
-  const summaryMatch = raw.match(/NOTICE_SUMMARY:\s*([\s\S]*?)\s*DRAFT_RESPONSE:/i);
-  const draftMatch = raw.match(/DRAFT_RESPONSE:\s*([\s\S]*)/i);
-
-  if (summaryMatch && draftMatch) {
-    return { summary: summaryMatch[1].trim(), draft: draftMatch[1].trim() };
-  }
-  // Model didn't use the expected headers — treat the whole thing as the
-  // draft rather than losing content.
-  return { summary: "Notice summary unavailable — see draft below.", draft: raw };
+function buildPrompt(noticeText?: string): string {
+  return `You are an expert Indian Chartered Accountant drafting a formal, ` +
+    `precise response to a tax notice on behalf of a client. Read the notice ` +
+    `provided (as text and/or an attached document) and produce a complete, ` +
+    `professionally worded draft response addressing every point raised in ` +
+    `the notice, in the correct formal register for correspondence with tax ` +
+    `authorities. Do not invent facts not present in the notice or supplied ` +
+    `context.` +
+    (noticeText ? `\n\nNotice text:\n${noticeText}` : "");
 }
 
-// Deno has no Buffer global; encode in chunks to avoid call-stack limits
-// on large PDFs when using String.fromCharCode(...bytes) directly.
-function arrayBufferToBase64(buffer: ArrayBuffer): string {
+function guessMimeType(path: string): string {
+  const ext = path.split(".").pop()?.toLowerCase();
+  switch (ext) {
+    case "pdf":
+      return "application/pdf";
+    case "png":
+      return "image/png";
+    case "jpg":
+    case "jpeg":
+      return "image/jpeg";
+    default:
+      return "application/octet-stream";
+  }
+}
+
+function encodeBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
-  const chunkSize = 0x8000;
   let binary = "";
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    const chunk = bytes.subarray(i, i + chunkSize);
-    binary += String.fromCharCode(...chunk);
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
   }
   return btoa(binary);
 }
 
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
+function jsonError(message: string, status: number): Response {
+  return new Response(JSON.stringify({ error: message }), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 }
