@@ -126,9 +126,7 @@ export default function TermsOfService() {
           <section>
             <h2 className="text-lg font-semibold text-ink-950">10. Governing law</h2>
             <p className="mt-2">
-              These terms are governed by the laws of India. [FILL IN: specify
-              jurisdiction/courts for dispute resolution once your business
-              entity and registered address are finalized.]
+              These terms shall be governed by and construed in accordance with the laws of India. Any 	disputes arising out of or in connection with these terms shall be subject to the exclusive 	jurisdiction of the courts located in Nagpur, Maharashtra.
             </p>
           </section>
 
@@ -142,7 +140,7 @@ export default function TermsOfService() {
 
           <section>
             <h2 className="text-lg font-semibold text-ink-950">12. Contact</h2>
-            <p className="mt-2">Questions about these terms: [SUPPORT EMAIL]</p>
+            <p className="mt-2">Questions about these terms: shashank.bawane@gmail.com</p>
           </section>
 
           <p className="border-t border-paper-line pt-6 text-xs text-ink-400">

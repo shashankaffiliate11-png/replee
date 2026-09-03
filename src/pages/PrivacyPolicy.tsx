@@ -64,7 +64,7 @@ export default function PrivacyPolicy() {
               processing of that data rests on the consent and instructions
               you (as the Data Fiduciary for that client) provide to us as
               your processor — see Section 7 below. You may withdraw consent
-              at any time by contacting us at [SUPPORT EMAIL] or deleting your
+              at any time by contacting us at shashank.bawane@gmail.com or deleting your
               account; withdrawal does not affect processing already carried
               out, and may mean we can no longer provide the service to you.
             </p>
@@ -86,20 +86,7 @@ export default function PrivacyPolicy() {
             <p className="mt-2">Because of how the app is built, the following third parties handle data on our behalf:</p>
             <ul className="mt-2 list-disc space-y-1.5 pl-5">
               <li>
-                <strong>Supabase</strong> — hosts our database, file storage,
-                and authentication. Notice files and drafts are stored here.
-              </li>
-              <li>
-                <strong>Our AI provider</strong> (Anthropic or Google, depending
-                on which model NoticeDesk is configured to use at the time) —
-                receives the notice content and case facts you submit, in
-                order to generate a draft response. [IMPORTANT: state clearly
-                here which provider is actually in use, and link to that
-                provider's own data-handling/API terms — this changes
-                depending on whether the app is running on a paid or free-tier
-                API key, since that affects whether your data is used for
-                model training. Do not leave this vague in the published
-                version.]
+	Notice files and drafts are stored in NoticeDesk Database.
               </li>
               <li>
                 <strong>Razorpay</strong> — processes subscription payments.
@@ -114,11 +101,7 @@ export default function PrivacyPolicy() {
           <section>
             <h2 className="text-lg font-semibold text-ink-950">6. Cross-border data transfer</h2>
             <p className="mt-2">
-              Some of the third parties listed above may process or store
-              data on servers located outside India. [CONFIRM: state the
-              actual hosting region(s) for your Supabase project and confirm
-              which AI provider/region is live.] The DPDP Act permits transfer
-              of personal data outside India except to countries the Central
+              The DPDP Act permits transfer of personal data outside India except to countries the Central
               Government restricts by notification; we do not transfer data
               to any such restricted country. As a CA, you should independently
               confirm this is consistent with any confidentiality undertakings
@@ -146,12 +129,12 @@ export default function PrivacyPolicy() {
             <h2 className="text-lg font-semibold text-ink-950">8. Data retention and deletion</h2>
             <p className="mt-2">
               We retain your account data and draft history for as long as
-              your account is active, and for [CONFIRM: e.g. 90 days] after
+              your account is active, and for 90 days after
               closure to allow for recovery, unless a longer period is needed
               to meet a legal obligation. You may request deletion of your
               account and associated data at any time by contacting us at
-              [SUPPORT EMAIL]; we will act on verified requests within
-              [CONFIRM: e.g. 30 days].
+	shashank.bawane@gmail.com; we will act on verified requests within
+              7 Days.
             </p>
           </section>
 
@@ -167,8 +150,8 @@ export default function PrivacyPolicy() {
               <li><strong>Nominate</strong> another individual to exercise these rights on your behalf in the event of your death or incapacity.</li>
             </ul>
             <p className="mt-2">
-              To exercise any of these rights, contact us at [SUPPORT EMAIL].
-              We will respond within [CONFIRM: e.g. 30 days].
+              To exercise any of these rights, contact us at shashank.bawane@gmail.com.
+              We will respond within 7 days.
             </p>
           </section>
 
@@ -202,10 +185,10 @@ export default function PrivacyPolicy() {
               escalate your complaint to the Data Protection Board of India.
             </p>
             <p className="mt-2">
-              [CONFIRM: Name of Grievance Officer]<br />
-              Email: [SUPPORT EMAIL]<br />
-              We will acknowledge complaints within [CONFIRM: e.g. 7 days]
-              and aim to resolve them within [CONFIRM: e.g. 30 days].
+              Shashank Bawane<br />
+              Email: shashank.bawane@gmail.com<br />
+              We will acknowledge complaints within [CONFIRM: e.g. 7 working days]
+              and aim to resolve them within 7 working days.
             </p>
           </section>
 
@@ -219,7 +202,7 @@ export default function PrivacyPolicy() {
 
           <section>
             <h2 className="text-lg font-semibold text-ink-950">14. Contact</h2>
-            <p className="mt-2">Questions about this policy: [SUPPORT EMAIL]</p>
+            <p className="mt-2">Questions about this policy: shashank.bawane@gmail.com</p>
           </section>
 
           <p className="border-t border-paper-line pt-6 text-xs text-ink-400">
