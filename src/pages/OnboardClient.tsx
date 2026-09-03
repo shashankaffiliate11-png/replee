@@ -48,29 +48,37 @@ export default function OnboardClient() {
     setLoading(true);
     try {
       const base64 = await convertPdfToBase64(file);
+      
       const { data, error: fnError } = await supabase.functions.invoke("extract-client-docs", {
         body: { base64File: base64, mimeType: file.type },
       });
 
-      if (fnError) throw fnError;
+      if (fnError) {
+        console.error("Supabase Function Error Object:", fnError);
+        throw new Error(fnError.message || "Failed to communicate with extraction function.");
+      }
+
+      if (data && data.error) {
+        throw new Error(data.error);
+      }
 
       if (data) {
         setFormData((prev) => ({
           ...prev,
-          legal_name: data.legal_name || data.client_name || prev.legal_name,
+          legal_name: data.legal_name || prev.legal_name,
           trade_name: data.trade_name || prev.trade_name,
           pan: data.pan || prev.pan,
-          entity_type: data.entity_type || data.constitution_of_business || prev.entity_type,
+          entity_type: data.entity_type || prev.entity_type,
           registered_address: data.registered_address || prev.registered_address,
           state: data.state || prev.state,
           pincode: data.pincode || prev.pincode,
-          signatory_name: data.signatory_name || data.authorized_signatory || prev.signatory_name,
+          signatory_name: data.signatory_name || prev.signatory_name,
         }));
-        setSuccessMessage("Document extracted! Review the populated details on the right.");
+        setSuccessMessage("Document extracted! Review details on the right.");
       }
     } catch (err: any) {
       console.error("Extraction error:", err);
-      setError("Could not extract details automatically. Please enter details manually.");
+      setError(err.message || "Could not extract details automatically. Please enter details manually.");
     } finally {
       setLoading(false);
     }
@@ -91,7 +99,6 @@ export default function OnboardClient() {
     setError(null);
     setSuccessMessage(null);
 
-    // Cast supabase query target to bypass strict client table inference
     const { error: dbError } = await (supabase.from("clients" as any) as any).insert({
       firm_id: user.id,
       legal_name: formData.legal_name,
@@ -168,7 +175,7 @@ export default function OnboardClient() {
           )}
 
           {error && (
-            <p className="mt-4 text-xs font-medium text-warn">
+            <p className="mt-4 text-xs font-medium text-warn break-words">
               {error}
             </p>
           )}
