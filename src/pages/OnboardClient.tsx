@@ -2,59 +2,75 @@ import React, { useState } from "react";
 import AppShell from "../components/AppShell";
 import { supabase } from "../lib/supabaseClient";
 import { convertPdfToBase64 } from "../lib/fileUtils";
+import { useAuth } from "../context/AuthContext";
 
 interface ClientForm {
-  client_name: string;
+  legal_name: string;
   trade_name: string;
-  gstin: string;
   pan: string;
-  aadhaar_number: string;
-  constitution_of_business: string;
+  entity_type: string;
   registered_address: string;
-  authorized_signatory: string;
+  state: string;
+  pincode: string;
+  signatory_name: string;
+  signatory_designation: string;
+  signatory_contact: string;
+  notes: string;
 }
 
 export default function OnboardClient() {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
   const [formData, setFormData] = useState<ClientForm>({
-    client_name: "",
+    legal_name: "",
     trade_name: "",
-    gstin: "",
     pan: "",
-    aadhaar_number: "",
-    constitution_of_business: "",
+    entity_type: "",
     registered_address: "",
-    authorized_signatory: "",
+    state: "",
+    pincode: "",
+    signatory_name: "",
+    signatory_designation: "",
+    signatory_contact: "",
+    notes: "",
   });
 
   const handleDocumentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    setError(null);
+    setSuccessMessage(null);
     const file = e.target.files?.[0];
     if (!file) return;
 
     setLoading(true);
     try {
       const base64 = await convertPdfToBase64(file);
-      const { data, error } = await supabase.functions.invoke("extract-client-docs", {
+      const { data, error: fnError } = await supabase.functions.invoke("extract-client-docs", {
         body: { base64File: base64, mimeType: file.type },
       });
 
-      if (error) throw error;
+      if (fnError) throw fnError;
 
       if (data) {
         setFormData((prev) => ({
           ...prev,
-          client_name: data.client_name || prev.client_name,
+          legal_name: data.legal_name || data.client_name || prev.legal_name,
           trade_name: data.trade_name || prev.trade_name,
-          gstin: data.gstin || prev.gstin,
           pan: data.pan || prev.pan,
-          aadhaar_number: data.aadhaar_number || prev.aadhaar_number,
-          constitution_of_business: data.constitution_of_business || prev.constitution_of_business,
+          entity_type: data.entity_type || data.constitution_of_business || prev.entity_type,
           registered_address: data.registered_address || prev.registered_address,
-          authorized_signatory: data.authorized_signatory || prev.authorized_signatory,
+          state: data.state || prev.state,
+          pincode: data.pincode || prev.pincode,
+          signatory_name: data.signatory_name || data.authorized_signatory || prev.signatory_name,
         }));
+        setSuccessMessage("Document extracted! Review the populated details on the right.");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Extraction error:", err);
+      setError("Could not extract details automatically. Please enter details manually.");
     } finally {
       setLoading(false);
     }
@@ -64,17 +80,72 @@ export default function OnboardClient() {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
+  const handleSaveClient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) {
+      setError("Your session has expired. Please sign in again.");
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    // Cast supabase query target to bypass strict client table inference
+    const { error: dbError } = await (supabase.from("clients" as any) as any).insert({
+      firm_id: user.id,
+      legal_name: formData.legal_name,
+      trade_name: formData.trade_name || null,
+      pan: formData.pan || null,
+      entity_type: formData.entity_type || null,
+      registered_address: formData.registered_address || null,
+      state: formData.state || null,
+      pincode: formData.pincode || null,
+      signatory_name: formData.signatory_name || null,
+      signatory_designation: formData.signatory_designation || null,
+      signatory_contact: formData.signatory_contact || null,
+      notes: formData.notes || null,
+    });
+
+    setSaving(false);
+
+    if (dbError) {
+      console.error("Database save error:", dbError);
+      setError("Failed to save client details. Please try again.");
+    } else {
+      setSuccessMessage("Client onboarded successfully!");
+      setFormData({
+        legal_name: "",
+        trade_name: "",
+        pan: "",
+        entity_type: "",
+        registered_address: "",
+        state: "",
+        pincode: "",
+        signatory_name: "",
+        signatory_designation: "",
+        signatory_contact: "",
+        notes: "",
+      });
+    }
+  };
+
   return (
     <AppShell>
+      <h1 className="text-2xl font-semibold text-ink-950 mb-1">Onboard Client</h1>
+      <p className="text-sm text-ink-600 mb-6">
+        Upload onboarding documents (GST, Partnership Deed, PAN, etc.) to auto-populate client fields.
+      </p>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Left Column: Document Upload Section */}
-        <div className="border p-6 bg-white rounded-lg shadow-sm">
-          <h2 className="text-xl font-semibold mb-2">Upload Client Documents</h2>
-          <p className="text-sm text-gray-600 mb-6">
-            Upload GST Registration, Aadhaar Card, or Partnership Deed to auto-extract details via OCR.
+        {/* Left Column: Upload Section */}
+        <div className="border border-paper-line bg-white p-6 rounded-lg shadow-sm h-fit">
+          <h2 className="text-lg font-medium text-ink-900 mb-2">Upload Document</h2>
+          <p className="text-xs text-ink-500 mb-6">
+            Supported formats: PDF, PNG, JPG (up to 10MB)
           </p>
 
-          <div className="border-2 border-dashed border-gray-300 p-8 text-center rounded-md bg-gray-50">
+          <div className="border-2 border-dashed border-paper-line p-8 text-center rounded-md bg-paper-dim">
             <input
               type="file"
               accept=".pdf,image/png,image/jpeg"
@@ -82,92 +153,162 @@ export default function OnboardClient() {
               className="hidden"
               id="doc-upload"
             />
-            <label htmlFor="doc-upload" className="cursor-pointer text-indigo-600 font-medium">
-              Click to upload document
+            <label
+              htmlFor="doc-upload"
+              className="cursor-pointer font-medium text-sm text-ink-950 underline hover:text-ink-700"
+            >
+              Click to select or drop document here
             </label>
-            <p className="text-xs text-gray-500 mt-1">PDF, PNG, or JPG up to 10MB</p>
           </div>
 
-          {loading && <p className="mt-4 text-sm text-indigo-600 font-medium">Extracting document details...</p>}
+          {loading && (
+            <p className="mt-4 text-xs font-medium text-ink-700">
+              Extracting client details via Gemini AI...
+            </p>
+          )}
+
+          {error && (
+            <p className="mt-4 text-xs font-medium text-warn">
+              {error}
+            </p>
+          )}
+
+          {successMessage && !loading && (
+            <p className="mt-4 text-xs font-medium text-emerald-600">
+              {successMessage}
+            </p>
+          )}
         </div>
 
-        {/* Right Column: Auto-populated Client Form */}
-        <div className="border p-6 bg-white rounded-lg shadow-sm">
-          <h2 className="text-xl font-semibold mb-4">Client Details</h2>
-          <form className="space-y-4">
+        {/* Right Column: Client Form */}
+        <div className="border border-paper-line bg-white p-6 rounded-lg shadow-sm">
+          <h2 className="text-lg font-medium text-ink-900 mb-4">Client Details</h2>
+          <form className="space-y-4" onSubmit={handleSaveClient}>
             <div>
-              <label className="block text-xs font-medium text-gray-700">Legal Name / Client Name</label>
+              <label className="field-label">Legal Name *</label>
               <input
                 type="text"
-                className="input w-full border rounded p-2 text-sm mt-1"
-                value={formData.client_name}
-                onChange={(e) => handleInputChange("client_name", e.target.value)}
+                required
+                className="input"
+                placeholder="ABC Traders Pvt Ltd"
+                value={formData.legal_name}
+                onChange={(e) => handleInputChange("legal_name", e.target.value)}
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-medium text-gray-700">Trade Name</label>
+                <label className="field-label">Trade Name</label>
                 <input
                   type="text"
-                  className="input w-full border rounded p-2 text-sm mt-1"
+                  className="input"
+                  placeholder="ABC Traders"
                   value={formData.trade_name}
                   onChange={(e) => handleInputChange("trade_name", e.target.value)}
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-700">GSTIN</label>
+                <label className="field-label">PAN</label>
                 <input
                   type="text"
-                  className="input w-full border rounded p-2 text-sm mt-1"
-                  value={formData.gstin}
-                  onChange={(e) => handleInputChange("gstin", e.target.value)}
+                  className="input"
+                  placeholder="ABCDE1234F"
+                  value={formData.pan}
+                  onChange={(e) => handleInputChange("pan", e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="field-label">Entity Type</label>
+              <input
+                type="text"
+                className="input"
+                placeholder="Private Limited / Partnership / Proprietorship"
+                value={formData.entity_type}
+                onChange={(e) => handleInputChange("entity_type", e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className="field-label">Registered Address</label>
+              <textarea
+                className="input min-h-[70px]"
+                placeholder="Full address"
+                value={formData.registered_address}
+                onChange={(e) => handleInputChange("registered_address", e.target.value)}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="field-label">State</label>
+                <input
+                  type="text"
+                  className="input"
+                  placeholder="Maharashtra"
+                  value={formData.state}
+                  onChange={(e) => handleInputChange("state", e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="field-label">Pincode</label>
+                <input
+                  type="text"
+                  className="input"
+                  placeholder="400001"
+                  value={formData.pincode}
+                  onChange={(e) => handleInputChange("pincode", e.target.value)}
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-medium text-gray-700">PAN</label>
+                <label className="field-label">Signatory Name</label>
                 <input
                   type="text"
-                  className="input w-full border rounded p-2 text-sm mt-1"
-                  value={formData.pan}
-                  onChange={(e) => handleInputChange("pan", e.target.value)}
+                  className="input"
+                  placeholder="Authorized person name"
+                  value={formData.signatory_name}
+                  onChange={(e) => handleInputChange("signatory_name", e.target.value)}
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-700">Aadhaar Number</label>
+                <label className="field-label">Signatory Designation</label>
                 <input
                   type="text"
-                  className="input w-full border rounded p-2 text-sm mt-1"
-                  value={formData.aadhaar_number}
-                  onChange={(e) => handleInputChange("aadhaar_number", e.target.value)}
+                  className="input"
+                  placeholder="Director / Partner"
+                  value={formData.signatory_designation}
+                  onChange={(e) => handleInputChange("signatory_designation", e.target.value)}
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-700">Constitution of Business</label>
+              <label className="field-label">Signatory Contact</label>
               <input
                 type="text"
-                className="input w-full border rounded p-2 text-sm mt-1"
-                value={formData.constitution_of_business}
-                onChange={(e) => handleInputChange("constitution_of_business", e.target.value)}
+                className="input"
+                placeholder="Email or phone number"
+                value={formData.signatory_contact}
+                onChange={(e) => handleInputChange("signatory_contact", e.target.value)}
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-700">Registered Address</label>
+              <label className="field-label">Notes</label>
               <textarea
-                className="input w-full border rounded p-2 text-sm mt-1 min-h-[80px]"
-                value={formData.registered_address}
-                onChange={(e) => handleInputChange("registered_address", e.target.value)}
+                className="input min-h-[60px]"
+                placeholder="Additional notes about client..."
+                value={formData.notes}
+                onChange={(e) => handleInputChange("notes", e.target.value)}
               />
             </div>
 
-            <button type="button" className="btn-primary w-full py-2 bg-black text-white rounded">
-              Save Client
+            <button type="submit" disabled={saving} className="btn-primary w-full mt-2">
+              {saving ? "Saving Client…" : "Save Client"}
             </button>
           </form>
         </div>
