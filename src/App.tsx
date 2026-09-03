@@ -12,6 +12,10 @@ import Settings from "./pages/Settings";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import ProtectedRoute from "./components/ProtectedRoute";
+import OnboardClient from "./pages/OnboardClient";
+
+// Inside <Routes>
+<Route path="/app/onboard-client" element={<OnboardClient />} />
 
 export default function App() {
   return (
