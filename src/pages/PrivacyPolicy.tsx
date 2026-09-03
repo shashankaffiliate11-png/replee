@@ -55,7 +55,23 @@ export default function PrivacyPolicy() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-ink-950">3. How we use it</h2>
+            <h2 className="text-lg font-semibold text-ink-950">3. Legal basis for processing</h2>
+            <p className="mt-2">
+              Under India's Digital Personal Data Protection Act, 2023 ("DPDP
+              Act"), we process your personal data on the basis of your{" "}
+              <strong>consent</strong>, given when you create an account and
+              accept this policy. Where you upload a client's data, our
+              processing of that data rests on the consent and instructions
+              you (as the Data Fiduciary for that client) provide to us as
+              your processor — see Section 7 below. You may withdraw consent
+              at any time by contacting us at [SUPPORT EMAIL] or deleting your
+              account; withdrawal does not affect processing already carried
+              out, and may mean we can no longer provide the service to you.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold text-ink-950">4. How we use it</h2>
             <p className="mt-2">
               We use your data to: operate the drafting feature (sending
               notice content to our AI processor to generate a draft),
@@ -66,7 +82,7 @@ export default function PrivacyPolicy() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-ink-950">4. Third parties who process your data</h2>
+            <h2 className="text-lg font-semibold text-ink-950">5. Third parties who process your data</h2>
             <p className="mt-2">Because of how the app is built, the following third parties handle data on our behalf:</p>
             <ul className="mt-2 list-disc space-y-1.5 pl-5">
               <li>
@@ -96,28 +112,68 @@ export default function PrivacyPolicy() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-ink-950">5. Your responsibility for client data</h2>
+            <h2 className="text-lg font-semibold text-ink-950">6. Cross-border data transfer</h2>
+            <p className="mt-2">
+              Some of the third parties listed above may process or store
+              data on servers located outside India. [CONFIRM: state the
+              actual hosting region(s) for your Supabase project and confirm
+              which AI provider/region is live.] The DPDP Act permits transfer
+              of personal data outside India except to countries the Central
+              Government restricts by notification; we do not transfer data
+              to any such restricted country. As a CA, you should independently
+              confirm this is consistent with any confidentiality undertakings
+              you have with your clients.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold text-ink-950">7. Your responsibility for client data</h2>
             <p className="mt-2">
               As a Chartered Accountant, you remain responsible for your own
               professional and confidentiality obligations toward your
               clients. By uploading a client's notice or facts to NoticeDesk,
               you confirm you have the right to do so, and that using this
               tool for that purpose is consistent with your obligations to
-              that client.
+              that client. For the purposes of the DPDP Act, you act as the{" "}
+              <strong>Data Fiduciary</strong> for your clients' personal data,
+              and NoticeDesk acts as your <strong>processor</strong>, handling
+              that data only to provide the drafting service, on your
+              instructions.
             </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-ink-950">6. Data retention and deletion</h2>
+            <h2 className="text-lg font-semibold text-ink-950">8. Data retention and deletion</h2>
             <p className="mt-2">
               We retain your account data and draft history for as long as
-              your account is active. You may request deletion of your
-              account and associated data by contacting us at [SUPPORT EMAIL].
+              your account is active, and for [CONFIRM: e.g. 90 days] after
+              closure to allow for recovery, unless a longer period is needed
+              to meet a legal obligation. You may request deletion of your
+              account and associated data at any time by contacting us at
+              [SUPPORT EMAIL]; we will act on verified requests within
+              [CONFIRM: e.g. 30 days].
             </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-ink-950">7. Security</h2>
+            <h2 className="text-lg font-semibold text-ink-950">9. Your rights as a Data Principal</h2>
+            <p className="mt-2">Under the DPDP Act, you have the right to:</p>
+            <ul className="mt-2 list-disc space-y-1.5 pl-5">
+              <li><strong>Access</strong> a summary of the personal data we hold about you and the processing we carry out.</li>
+              <li><strong>Correct or update</strong> inaccurate or incomplete personal data.</li>
+              <li><strong>Erase</strong> personal data that is no longer needed for the purpose it was collected, subject to any legal retention requirement.</li>
+              <li><strong>Withdraw consent</strong> at any time (see Section 3).</li>
+              <li><strong>Grievance redressal</strong> — raise a complaint about how we handle your data (see Section 12).</li>
+              <li><strong>Nominate</strong> another individual to exercise these rights on your behalf in the event of your death or incapacity.</li>
+            </ul>
+            <p className="mt-2">
+              To exercise any of these rights, contact us at [SUPPORT EMAIL].
+              We will respond within [CONFIRM: e.g. 30 days].
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold text-ink-950">10. Security</h2>
             <p className="mt-2">
               Notice files and drafts are stored in a private, access-controlled
               storage bucket — only you can access your own uploads and drafts.
@@ -128,7 +184,33 @@ export default function PrivacyPolicy() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-ink-950">8. Changes to this policy</h2>
+            <h2 className="text-lg font-semibold text-ink-950">11. Data breach notification</h2>
+            <p className="mt-2">
+              If a personal data breach occurs that is likely to affect you,
+              we will notify you and the Data Protection Board of India as
+              required under the DPDP Act, describing the nature of the
+              breach and the steps we're taking in response.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold text-ink-950">12. Grievance Officer</h2>
+            <p className="mt-2">
+              As required under the DPDP Act, we have appointed a Grievance
+              Officer to address complaints about how your personal data is
+              processed. If you're unsatisfied with our response, you may
+              escalate your complaint to the Data Protection Board of India.
+            </p>
+            <p className="mt-2">
+              [CONFIRM: Name of Grievance Officer]<br />
+              Email: [SUPPORT EMAIL]<br />
+              We will acknowledge complaints within [CONFIRM: e.g. 7 days]
+              and aim to resolve them within [CONFIRM: e.g. 30 days].
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold text-ink-950">13. Changes to this policy</h2>
             <p className="mt-2">
               We may update this policy from time to time. Material changes
               will be notified via email or an in-app notice.
@@ -136,7 +218,7 @@ export default function PrivacyPolicy() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-ink-950">9. Contact</h2>
+            <h2 className="text-lg font-semibold text-ink-950">14. Contact</h2>
             <p className="mt-2">Questions about this policy: [SUPPORT EMAIL]</p>
           </section>
 

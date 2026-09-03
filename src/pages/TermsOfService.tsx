@@ -73,7 +73,26 @@ export default function TermsOfService() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-ink-950">6. Intellectual property</h2>
+            <h2 className="text-lg font-semibold text-ink-950">6. Data protection responsibilities</h2>
+            <p className="mt-2">
+              Where you upload a client's personal data (including notice
+              content or case facts), you act as the <strong>Data
+              Fiduciary</strong> for that data under India's Digital Personal
+              Data Protection Act, 2023, and NoticeDesk acts solely as your{" "}
+              <strong>processor</strong>, handling it only to generate and
+              store drafts on your instructions. You confirm that you have a
+              valid basis (such as your client's consent or an applicable
+              legal exemption) to share that data with us for this purpose,
+              and that doing so is consistent with your professional
+              confidentiality obligations as a Chartered Accountant. See our{" "}
+              <Link to="/privacy" className="text-brass-dark underline">Privacy Policy</Link>{" "}
+              for how we handle data, including your rights and our
+              Grievance Officer's contact details.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold text-ink-950">7. Intellectual property</h2>
             <p className="mt-2">
               You retain all rights to the notice content, case facts, and
               final edited responses you create using NoticeDesk. We retain
@@ -82,7 +101,7 @@ export default function TermsOfService() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-ink-950">7. Disclaimer and limitation of liability</h2>
+            <h2 className="text-lg font-semibold text-ink-950">8. Disclaimer and limitation of liability</h2>
             <p className="mt-2">
               NoticeDesk is provided "as is," without warranties of any kind.
               We do not warrant that drafts are accurate, complete, or
@@ -96,7 +115,7 @@ export default function TermsOfService() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-ink-950">8. Termination</h2>
+            <h2 className="text-lg font-semibold text-ink-950">9. Termination</h2>
             <p className="mt-2">
               We may suspend or terminate accounts that violate these terms.
               You may stop using the service and close your account at any
@@ -105,7 +124,7 @@ export default function TermsOfService() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-ink-950">9. Governing law</h2>
+            <h2 className="text-lg font-semibold text-ink-950">10. Governing law</h2>
             <p className="mt-2">
               These terms are governed by the laws of India. [FILL IN: specify
               jurisdiction/courts for dispute resolution once your business
@@ -114,7 +133,7 @@ export default function TermsOfService() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-ink-950">10. Changes to these terms</h2>
+            <h2 className="text-lg font-semibold text-ink-950">11. Changes to these terms</h2>
             <p className="mt-2">
               We may update these terms from time to time. Continued use of
               NoticeDesk after changes means you accept the updated terms.
@@ -122,7 +141,7 @@ export default function TermsOfService() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-ink-950">11. Contact</h2>
+            <h2 className="text-lg font-semibold text-ink-950">12. Contact</h2>
             <p className="mt-2">Questions about these terms: [SUPPORT EMAIL]</p>
           </section>
 
