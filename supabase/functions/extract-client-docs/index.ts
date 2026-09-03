@@ -35,18 +35,15 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Strip prefix if full Data URL was passed (e.g. data:application/pdf;base64,...)
+    // Strip prefix if full Data URL was passed (e.g., data:application/pdf;base64,...)
     const cleanBase64 = base64File.includes(",") ? base64File.split(",")[1] : base64File;
 
-    // Initialize SDK with explicit v1beta API options
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel(
-      { model: "gemini-1.5-flash" },
-      { apiVersion: "v1beta" }
-    );
+    // Updated to gemini-1.5-flash-latest to target active endpoints
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
 
     const prompt = `Extract client onboarding details from this document (GST Certificate, Identity Document, PAN, or Partnership Deed). 
-    Return strictly valid JSON without markdown formatting:
+    Return strictly valid JSON without markdown wrapping:
     {
       "legal_name": string | null,
       "trade_name": string | null,
