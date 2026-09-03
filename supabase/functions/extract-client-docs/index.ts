@@ -1,12 +1,11 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.1.1";
+import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.21.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   // Handle CORS preflight request
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -28,7 +27,7 @@ serve(async (req) => {
     const apiKey = Deno.env.get("GEMINI_API_KEY");
     if (!apiKey) {
       return new Response(
-        JSON.stringify({ error: "GEMINI_API_KEY is not configured in Supabase environment secrets." }),
+        JSON.stringify({ error: "GEMINI_API_KEY environment variable is not configured in Supabase." }),
         {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -39,11 +38,15 @@ serve(async (req) => {
     // Strip prefix if full Data URL was passed (e.g. data:application/pdf;base64,...)
     const cleanBase64 = base64File.includes(",") ? base64File.split(",")[1] : base64File;
 
+    // Initialize SDK with explicit v1beta API options
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel(
+      { model: "gemini-1.5-flash" },
+      { apiVersion: "v1beta" }
+    );
 
     const prompt = `Extract client onboarding details from this document (GST Certificate, Identity Document, PAN, or Partnership Deed). 
-    Return strictly valid JSON without markdown wrapping:
+    Return strictly valid JSON without markdown formatting:
     {
       "legal_name": string | null,
       "trade_name": string | null,
@@ -57,11 +60,17 @@ serve(async (req) => {
 
     const result = await model.generateContent([
       prompt,
-      { inlineData: { data: cleanBase64, mimeType: mimeType || "application/pdf" } },
+      {
+        inlineData: {
+          data: cleanBase64,
+          mimeType: mimeType || "application/pdf",
+        },
+      },
     ]);
 
-    const rawText = result.response.text().replace(/```json|```/g, "").trim();
-    const parsedData = JSON.parse(rawText);
+    const responseText = result.response.text();
+    const cleanJson = responseText.replace(/```json|```/g, "").trim();
+    const parsedData = JSON.parse(cleanJson);
 
     return new Response(JSON.stringify(parsedData), {
       status: 200,
