@@ -14,12 +14,10 @@ import TermsOfService from "./pages/TermsOfService";
 import ProtectedRoute from "./components/ProtectedRoute";
 import OnboardClient from "./pages/OnboardClient";
 
-// Inside <Routes>
-<Route path="/app/onboard-client" element={<OnboardClient />} />
-
 export default function App() {
   return (
     <Routes>
+      {/* Public Pages */}
       <Route path="/" element={<LandingPage />} />
       <Route path="/pricing" element={<PricingPage />} />
       <Route path="/privacy" element={<PrivacyPolicy />} />
@@ -27,6 +25,7 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
 
+      {/* Protected Pages */}
       <Route
         path="/onboarding"
         element={
@@ -48,6 +47,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <NewNotice />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/app/onboard-client"
+        element={
+          <ProtectedRoute>
+            <OnboardClient />
           </ProtectedRoute>
         }
       />
@@ -76,6 +83,7 @@ export default function App() {
         }
       />
 
+      {/* Fallback */}
       <Route path="*" element={<LandingPage />} />
     </Routes>
   );
