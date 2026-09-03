@@ -35,6 +35,14 @@ const MIME_BY_EXTENSION: Record<string, string> = {
 
 const GEMINI_MODEL = "gemini-2.5-flash";
 
+// Required for the browser to be allowed to call this function at all — see
+// the OPTIONS handling in Deno.serve below for why.
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 const SYSTEM_PROMPT = `You are drafting a formal written response to an Indian GST or Income Tax
 department notice, for a practicing Chartered Accountant to review, edit, and
 file on behalf of their client.
@@ -75,6 +83,14 @@ Rules for the draft response:
   facts.`;
 
 Deno.serve(async (req) => {
+  // Browsers send an OPTIONS "preflight" request before the real POST when
+  // calling a different origin (your app's domain calling *.supabase.co).
+  // Without handling it, the preflight itself gets rejected and the real
+  // request never goes out — this is what caused the 405 you saw.
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: CORS_HEADERS });
+  }
+
   if (req.method !== "POST") {
     return json({ error: "Method not allowed" }, 405);
   }
@@ -292,6 +308,6 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...CORS_HEADERS },
   });
 }

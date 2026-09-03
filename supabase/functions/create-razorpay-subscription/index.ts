@@ -26,7 +26,20 @@ const PLAN_ID_ENV_MAP: Record<string, string> = {
   professional: "RAZORPAY_PLAN_PROFESSIONAL",
 };
 
+// Required for the browser to be allowed to call this function at all —
+// without handling the OPTIONS preflight below, calls from the frontend
+// fail with a 405 before the real POST ever goes out.
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: CORS_HEADERS });
+  }
+
   if (req.method !== "POST") {
     return json({ error: "Method not allowed" }, 405);
   }
@@ -112,6 +125,6 @@ Deno.serve(async (req) => {
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...CORS_HEADERS },
   });
 }
