@@ -1,278 +1,464 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect, useRef } from "react";
 import AppShell from "../components/AppShell";
-import NoticeExtractionFlow from "../components/NoticeExtractionFlow";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../context/AuthContext";
-import { ExtractedNotice } from "../types/notice";
+import { useNavigate } from "react-router-dom";
 
-const NOTICE_TYPES = [
-  "GST ASMT-10 (Scrutiny of returns)",
-  "GST DRC-01 (Show cause notice)",
-  "GST REG-17 (Cancellation of registration)",
-  "Income Tax 143(1) (Intimation)",
-  "Income Tax 143(2) (Scrutiny)",
-  "Income Tax 148 (Reassessment)",
-  "TDS default notice",
-  "Other",
-];
-
-const ACCEPTED_TYPES = ["application/pdf", "image/png", "image/jpeg"];
-const MAX_FILE_BYTES = 10 * 1024 * 1024;
+interface ClientRecord {
+  id: string;
+  legal_name: string;
+  trade_name?: string;
+  pan?: string;
+  entity_type?: string;
+  registered_address?: string;
+  state?: string;
+  pincode?: string;
+  signatory_name?: string;
+  signatory_designation?: string;
+  signatory_contact?: string;
+  notes?: string;
+}
 
 export default function NewNotice() {
-  const navigate = useNavigate();
   const { user } = useAuth();
+  const navigate = useNavigate();
 
+  const [searchQuery, setSearchQuery] = useState("");
+  const [clientOptions, setClientOptions] = useState<ClientRecord[]>([]);
+  const [selectedClient, setSelectedClient] = useState<ClientRecord | null>(null);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const [noticeType, setNoticeType] = useState("GST ASMT-10 (Scrutiny of returns)");
   const [inputMode, setInputMode] = useState<"upload" | "paste">("upload");
   const [file, setFile] = useState<File | null>(null);
-  const [noticeText, setNoticeText] = useState("");
+  const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
+  const [pastedText, setPastedText] = useState("");
 
-  const [clientName, setClientName] = useState("");
-  const [noticeType, setNoticeType] = useState(NOTICE_TYPES[0]);
-  const [referenceNo, setReferenceNo] = useState("");
-  const [caseFacts, setCaseFacts] = useState("");
-  const [extractedNoticeData, setExtractedNoticeData] =
-    useState<ExtractedNotice | null>(null);
-
-  const [submitting, setSubmitting] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Aligned with NoticeExtractionFlow's onProceedToDraft callback
-  function handleDataConfirmed(data: ExtractedNotice) {
-    setExtractedNoticeData(data);
-    if (data.notice_ref_no) setReferenceNo(data.notice_ref_no);
-    if (data.discrepancy_details) setCaseFacts(data.discrepancy_details);
-    if (data.notice_type) {
-      const matchedType = NOTICE_TYPES.find((t) =>
-        t.toLowerCase().includes(data.notice_type!.toLowerCase()),
-      );
-      if (matchedType) setNoticeType(matchedType);
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
     }
-  }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
-  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    setError(null);
-    const selected = e.target.files?.[0];
-    if (!selected) return;
+  useEffect(() => {
+    const fetchClients = async () => {
+      if (!user) return;
+      try {
+        let query = (supabase.from("clients" as any) as any).select("*").eq("firm_id", user.id);
+        if (searchQuery.trim().length > 0) {
+          query = query.or(
+            `legal_name.ilike.%${searchQuery}%,trade_name.ilike.%${searchQuery}%,signatory_name.ilike.%${searchQuery}%`
+          );
+        }
+        const { data, error: dbErr } = await query.limit(10);
+        if (dbErr) throw dbErr;
+        setClientOptions(data || []);
+      } catch (err: any) {
+        console.error("Error fetching clients:", err);
+      }
+    };
 
-    if (!ACCEPTED_TYPES.includes(selected.type)) {
-      setError("Please upload a PDF, PNG, or JPG file.");
+    const timer = setTimeout(() => {
+      fetchClients();
+    }, 200);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery, user]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (selectedFile) {
+      setFile(selectedFile);
+      setFilePreviewUrl(URL.createObjectURL(selectedFile));
+    }
+  };
+
+  const isPreviewAvailable = Boolean(file || (inputMode === "paste" && pastedText.trim().length > 0));
+
+  const handleGenerateDraft = async () => {
+    if (!selectedClient) {
+      setError("Please search and select a client first.");
       return;
     }
-    if (selected.size > MAX_FILE_BYTES) {
-      setError(
-        "File is larger than 10 MB. Try a smaller scan or compress the PDF.",
-      );
-      return;
-    }
-    setFile(selected);
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
 
     if (inputMode === "upload" && !file) {
-      setError(
-        "Attach the notice file, or switch to pasting the text instead.",
-      );
-      return;
-    }
-    if (inputMode === "paste" && !noticeText.trim()) {
-      setError(
-        "Paste the notice text, or switch to uploading the file instead.",
-      );
-      return;
-    }
-    if (!user) {
-      setError("Your session expired. Please sign in again.");
+      setError("Please select a file to upload.");
       return;
     }
 
-    setSubmitting(true);
+    if (inputMode === "paste" && !pastedText.trim()) {
+      setError("Please paste notice text before generating.");
+      return;
+    }
 
-    let noticeFilePath: string | null = null;
+    setGenerating(true);
+    setError(null);
 
-    if (inputMode === "upload" && file) {
-      setStatusMessage("Uploading notice…");
-      const extension = file.name.split(".").pop()?.toLowerCase() ?? "pdf";
-      const path = `${user.id}/${crypto.randomUUID()}.${extension}`;
+    try {
+      let noticeFilePath = null;
 
-      const { error: uploadError } = await supabase.storage
-        .from("notice-uploads")
-        .upload(path, file, { contentType: file.type });
+      if (inputMode === "upload" && file && user) {
+        const fileExt = file.name.split(".").pop();
+        const filePath = `${user.id}/${crypto.randomUUID()}.${fileExt}`;
 
-      if (uploadError) {
-        setError("Could not upload the file. Please try again.");
-        setSubmitting(false);
-        setStatusMessage(null);
-        return;
+        const { error: uploadErr } = await supabase.storage
+          .from("notice-uploads")
+          .upload(filePath, file);
+
+        if (uploadErr) throw uploadErr;
+        noticeFilePath = filePath;
       }
-      noticeFilePath = path;
-    }
 
-    setStatusMessage("Reading the notice and drafting a response…");
-
-    const { data, error: fnError } = await supabase.functions.invoke(
-      "draft-notice",
-      {
+      const { data, error: genError } = await supabase.functions.invoke("draft-notice", {
         body: {
-          client_name: clientName,
+          client_name: selectedClient.legal_name,
+          client_details: selectedClient,
           notice_type: noticeType,
-          notice_reference_no: referenceNo || null,
           notice_file_path: noticeFilePath,
-          original_notice_text: inputMode === "paste" ? noticeText : null,
-          case_facts: caseFacts,
-          extracted_data: extractedNoticeData,
+          original_notice_text: inputMode === "paste" ? pastedText : null,
         },
-      },
-    );
+      });
 
-    setSubmitting(false);
-    setStatusMessage(null);
+      if (genError) throw genError;
+      if (data?.error) throw new Error(data.error);
 
-    if (fnError) {
-      const message =
-        (fnError as any)?.context?.body?.error ??
-        "Could not generate a draft right now. Please try again.";
-      setError(message);
-      return;
+      if (data?.notice_id) {
+        navigate(`/app/notices/${data.notice_id}`);
+      } else {
+        navigate("/app/history");
+      }
+    } catch (err: any) {
+      console.error("Draft generation error:", err);
+      setError(err.message || "Failed to generate response draft.");
+    } finally {
+      setGenerating(false);
     }
-
-    if (data?.notice_id) {
-      navigate(`/app/notices/${data.notice_id}`);
-    }
-  }
+  };
 
   return (
     <AppShell>
-      <h1 className="text-2xl font-semibold text-ink-950">New draft</h1>
-      <p className="mt-1 text-sm text-ink-600">
-        Extract information from notice PDF and generate an automated reply
-        draft.
-      </p>
-
-      {inputMode === "upload" && (
-        <div className="mt-6 max-w-2xl">
-          <NoticeExtractionFlow onProceedToDraft={handleDataConfirmed} />
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit} className="mt-8 max-w-2xl space-y-6">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label className="field-label" htmlFor="clientName">
-              Client name
-            </label>
-            <input
-              id="clientName"
-              className="input"
-              value={clientName}
-              onChange={(e) => setClientName(e.target.value)}
-              placeholder="ABC Traders Pvt Ltd"
-              required
-            />
-          </div>
-          <div>
-            <label className="field-label" htmlFor="referenceNo">
-              Notice reference no.
-            </label>
-            <input
-              id="referenceNo"
-              className="input"
-              value={referenceNo}
-              onChange={(e) => setReferenceNo(e.target.value)}
-              placeholder="ZD2908240123456"
-            />
-          </div>
-        </div>
-
-        <div>
-          <label className="field-label" htmlFor="noticeType">
-            Notice type
-          </label>
-          <select
-            id="noticeType"
-            className="input"
-            value={noticeType}
-            onChange={(e) => setNoticeType(e.target.value)}
-          >
-            {NOTICE_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <div className="flex gap-1 border border-paper-line bg-paper-dim p-1 text-sm">
-            <button
-              type="button"
-              onClick={() => setInputMode("upload")}
-              className={`flex-1 py-2 font-medium ${
-                inputMode === "upload"
-                  ? "bg-white text-ink-950 shadow-sm"
-                  : "text-ink-500"
-              }`}
-            >
-              Upload notice file
-            </button>
-            <button
-              type="button"
-              onClick={() => setInputMode("paste")}
-              className={`flex-1 py-2 font-medium ${
-                inputMode === "paste"
-                  ? "bg-white text-ink-950 shadow-sm"
-                  : "text-ink-500"
-              }`}
-            >
-              Paste text instead
-            </button>
-          </div>
-
-          {inputMode === "upload" ? (
-            <div className="mt-3 text-xs text-ink-600">
-              {file
-                ? `Attached File: ${file.name}`
-                : "Upload PDF using the extraction form above."}
-            </div>
-          ) : (
-            <textarea
-              className="input mt-3 min-h-[160px]"
-              value={noticeText}
-              onChange={(e) => setNoticeText(e.target.value)}
-              placeholder="Paste the full text of the notice here…"
-            />
-          )}
-        </div>
-
-        <div>
-          <label className="field-label" htmlFor="caseFacts">
-            Case facts / Discrepancy details
-          </label>
-          <textarea
-            id="caseFacts"
-            className="input min-h-[140px]"
-            value={caseFacts}
-            onChange={(e) => setCaseFacts(e.target.value)}
-            placeholder="Details about the notice..."
-            required
-          />
-        </div>
+      <div className="max-w-7xl mx-auto">
+        <h1 className="text-2xl font-semibold text-ink-950 mb-1">New Draft</h1>
+        <p className="text-sm text-ink-600 mb-6">Select a client and upload notice to generate automated response.</p>
 
         {error && (
-          <div className="border border-warn/30 bg-warn/5 px-4 py-3 text-sm text-warn">
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-md">
             {error}
           </div>
         )}
 
-        <button type="submit" disabled={submitting} className="btn-primary">
-          {statusMessage ?? (submitting ? "Drafting…" : "Generate draft")}
-        </button>
-      </form>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="space-y-6">
+            <div className="relative" ref={dropdownRef}>
+              <label className="block text-xs font-semibold text-ink-900 uppercase tracking-wide mb-1">
+                Client Name
+              </label>
+              <input
+                type="text"
+                className="input w-full"
+                placeholder="Search Client by Name, Trade Name, or Signatory..."
+                value={searchQuery}
+                onFocus={() => setIsDropdownOpen(true)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setIsDropdownOpen(true);
+                }}
+              />
+
+              {isDropdownOpen && (
+                <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-white border border-paper-line rounded-md shadow-lg max-h-60 overflow-y-auto">
+                  {clientOptions.length > 0 ? (
+                    clientOptions.map((client) => (
+                      <div
+                        key={client.id}
+                        className="px-4 py-2 hover:bg-paper-dim cursor-pointer text-sm text-ink-900 border-b border-paper-line last:border-b-0"
+                        onClick={() => {
+                          setSelectedClient(client);
+                          setSearchQuery(client.legal_name);
+                          setIsDropdownOpen(false);
+                        }}
+                      >
+                        <div className="font-medium">{client.legal_name}</div>
+                        {client.trade_name && (
+                          <div className="text-xs text-ink-500">Trade: {client.trade_name} | PAN: {client.pan || 'N/A'}</div>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="px-4 py-3 text-xs text-ink-500 text-center">
+                      No onboarded clients found.
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-ink-900 uppercase tracking-wide mb-1">
+                Notice Type
+              </label>
+              <select
+                className="input w-full bg-white"
+                value={noticeType}
+                onChange={(e) => setNoticeType(e.target.value)}
+              >
+                <option value="GST ASMT-10 (Scrutiny of returns)">GST ASMT-10 (Scrutiny of returns)</option>
+                <option value="GST DRC-01 (Show Cause Notice)">GST DRC-01 (Show Cause Notice)</option>
+                <option value="Income Tax Sec 148 (Reassessment)">Income Tax Sec 148 (Reassessment)</option>
+                <option value="Income Tax Sec 143(1) (Intimation)">Income Tax Sec 143(1) (Intimation)</option>
+                <option value="General Legal Response">General Legal Response</option>
+              </select>
+            </div>
+
+            <div>
+              <div className="flex border-b border-paper-line mb-4">
+                <button
+                  type="button"
+                  className={`py-2 px-4 text-xs font-medium border-b-2 transition-colors ${
+                    inputMode === "upload"
+                      ? "border-amber-500 text-ink-950 font-semibold"
+                      : "border-transparent text-ink-500 hover:text-ink-900"
+                  }`}
+                  onClick={() => setInputMode("upload")}
+                >
+                  Upload notice file
+                </button>
+                <button
+                  type="button"
+                  className={`py-2 px-4 text-xs font-medium border-b-2 transition-colors ${
+                    inputMode === "paste"
+                      ? "border-amber-500 text-ink-950 font-semibold"
+                      : "border-transparent text-ink-500 hover:text-ink-900"
+                  }`}
+                  onClick={() => setInputMode("paste")}
+                >
+                  Paste text instead
+                </button>
+              </div>
+
+              {inputMode === "upload" ? (
+                <div className="border-2 border-dashed border-paper-line p-8 text-center rounded-md bg-paper-dim flex flex-col items-center justify-center min-h-[180px]">
+                  <input
+                    type="file"
+                    accept=".pdf,image/png,image/jpeg"
+                    onChange={handleFileChange}
+                    className="hidden"
+                    id="notice-doc-upload"
+                  />
+                  <label
+                    htmlFor="notice-doc-upload"
+                    className="cursor-pointer font-medium text-sm text-blue-600 hover:underline"
+                  >
+                    Click to upload PDF
+                  </label>
+                  <p className="text-xs text-ink-400 mt-1">PDF up to 8MB</p>
+                  {file && <p className="mt-2 text-xs font-semibold text-emerald-600">Selected: {file.name}</p>}
+                </div>
+              ) : (
+                <div>
+                  <textarea
+                    className="input w-full min-h-[180px] text-xs font-mono"
+                    placeholder="Paste full notice text contents here..."
+                    value={pastedText}
+                    onChange={(e) => setPastedText(e.target.value)}
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between pt-2">
+              <button
+                type="button"
+                disabled={!isPreviewAvailable}
+                onClick={() => setShowPreviewModal(true)}
+                className={`px-4 py-2 text-xs font-medium border rounded-md transition-colors ${
+                  isPreviewAvailable
+                    ? "border-ink-950 text-ink-950 hover:bg-paper-dim cursor-pointer"
+                    : "border-paper-line text-ink-300 cursor-not-allowed"
+                }`}
+              >
+                Preview Document
+              </button>
+
+              <button
+                type="button"
+                disabled={generating}
+                onClick={handleGenerateDraft}
+                className="bg-amber-500 hover:bg-amber-600 text-white font-medium px-6 py-2 rounded-md text-xs transition-colors shadow-sm disabled:opacity-50"
+              >
+                {generating ? "Generating Draft..." : "Generate draft"}
+              </button>
+            </div>
+          </div>
+
+          <div className="border border-paper-line bg-white p-6 rounded-lg shadow-sm h-fit">
+            <h2 className="text-lg font-medium text-ink-900 mb-4">Client Details</h2>
+            
+            <div className="space-y-4 text-xs">
+              <div>
+                <label className="block font-semibold text-ink-500 uppercase tracking-wide mb-1">LEGAL NAME *</label>
+                <input
+                  type="text"
+                  readOnly
+                  className="input w-full bg-paper-dim cursor-not-allowed"
+                  value={selectedClient?.legal_name || ""}
+                  placeholder="ABC Traders Pvt Ltd"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-semibold text-ink-500 uppercase tracking-wide mb-1">TRADE NAME</label>
+                  <input
+                    type="text"
+                    readOnly
+                    className="input w-full bg-paper-dim cursor-not-allowed"
+                    value={selectedClient?.trade_name || ""}
+                    placeholder="ABC Traders"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-ink-500 uppercase tracking-wide mb-1">PAN</label>
+                  <input
+                    type="text"
+                    readOnly
+                    className="input w-full bg-paper-dim cursor-not-allowed"
+                    value={selectedClient?.pan || ""}
+                    placeholder="ABCDE1234F"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-ink-500 uppercase tracking-wide mb-1">ENTITY TYPE</label>
+                <input
+                  type="text"
+                  readOnly
+                  className="input w-full bg-paper-dim cursor-not-allowed"
+                  value={selectedClient?.entity_type || ""}
+                  placeholder="Private Limited / Partnership / Proprietorship"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-ink-500 uppercase tracking-wide mb-1">REGISTERED ADDRESS</label>
+                <textarea
+                  readOnly
+                  className="input w-full bg-paper-dim min-h-[60px] cursor-not-allowed"
+                  value={selectedClient?.registered_address || ""}
+                  placeholder="Full address"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-semibold text-ink-500 uppercase tracking-wide mb-1">STATE</label>
+                  <input
+                    type="text"
+                    readOnly
+                    className="input w-full bg-paper-dim cursor-not-allowed"
+                    value={selectedClient?.state || ""}
+                    placeholder="Maharashtra"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-ink-500 uppercase tracking-wide mb-1">PINCODE</label>
+                  <input
+                    type="text"
+                    readOnly
+                    className="input w-full bg-paper-dim cursor-not-allowed"
+                    value={selectedClient?.pincode || ""}
+                    placeholder="400001"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-semibold text-ink-500 uppercase tracking-wide mb-1">SIGNATORY NAME</label>
+                  <input
+                    type="text"
+                    readOnly
+                    className="input w-full bg-paper-dim cursor-not-allowed"
+                    value={selectedClient?.signatory_name || ""}
+                    placeholder="Authorized person name"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-ink-500 uppercase tracking-wide mb-1">SIGNATORY DESIGNATION</label>
+                  <input
+                    type="text"
+                    readOnly
+                    className="input w-full bg-paper-dim cursor-not-allowed"
+                    value={selectedClient?.signatory_designation || ""}
+                    placeholder="Director / Partner"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-ink-500 uppercase tracking-wide mb-1">SIGNATORY CONTACT</label>
+                <input
+                  type="text"
+                  readOnly
+                  className="input w-full bg-paper-dim cursor-not-allowed"
+                  value={selectedClient?.signatory_contact || ""}
+                  placeholder="Email or phone number"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-ink-500 uppercase tracking-wide mb-1">NOTES</label>
+                <textarea
+                  readOnly
+                  className="input w-full bg-paper-dim min-h-[50px] cursor-not-allowed"
+                  value={selectedClient?.notes || ""}
+                  placeholder="Additional notes about client..."
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {showPreviewModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden">
+            <div className="px-6 py-4 border-b border-paper-line flex items-center justify-between bg-paper-dim">
+              <h3 className="text-sm font-semibold text-ink-950">Notice Document Preview</h3>
+              <button
+                onClick={() => setShowPreviewModal(false)}
+                className="px-3 py-1 bg-ink-950 text-white text-xs rounded hover:bg-ink-800 transition-colors"
+              >
+                Close Preview
+              </button>
+            </div>
+
+            <div className="flex-1 p-6 overflow-auto bg-gray-100 flex items-center justify-center">
+              {inputMode === "upload" && filePreviewUrl ? (
+                file?.type === "application/pdf" ? (
+                  <iframe src={filePreviewUrl} className="w-full h-full border-0 rounded" title="PDF Preview" />
+                ) : (
+                  <img src={filePreviewUrl} alt="Notice Preview" className="max-w-full max-h-full object-contain" />
+                )
+              ) : (
+                <div className="w-full h-full bg-white p-6 rounded border border-paper-line overflow-y-auto whitespace-pre-wrap font-mono text-xs text-ink-900">
+                  {pastedText || "No content available to preview."}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }
