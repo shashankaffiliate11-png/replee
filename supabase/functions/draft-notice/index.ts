@@ -24,12 +24,16 @@ const GEMINI_MODEL = "gemini-3.6-flash";
 const GEMINI_ENDPOINT =
   `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
+// Added explicit instruction: DO NOT use markdown syntax like asterisks.
 const SYSTEM_PROMPT = `You are drafting a formal written response to an Indian GST or Income Tax
 department notice, for a practicing Chartered Accountant to review, edit, and
 file on behalf of their client.
 
 The notice will be provided either as pasted text, or as an attached PDF or
 photo of the actual notice — in the latter case, read the document directly.
+
+FORMATTING RULE:
+Do NOT use Markdown formatting such as bolding with asterisks (**text**), italics (*text*), or asterisk bullet points (* item). Write in plain formal text using clean standard capitalization and numbered lists (1., 2., 3.) where needed.
 
 Respond in exactly this format, with both section headers present and
 nothing before the first header:
@@ -184,7 +188,7 @@ ${
     : `Full notice text:\n"""\n${body.original_notice_text}\n"""`
 }
 
-Respond now in the NOTICE_SUMMARY / DRAFT_RESPONSE format described in your instructions.`;
+Respond now in the NOTICE_SUMMARY / DRAFT_RESPONSE format described in your instructions. Do not use asterisks anywhere in your response.`;
 
   parts.push({ text: textPrompt });
 
@@ -218,7 +222,10 @@ Respond now in the NOTICE_SUMMARY / DRAFT_RESPONSE format described in your inst
     return json({ error: "Draft generation returned no content." }, 502);
   }
 
+  // Parse summary and draft, then strip out any residual asterisks
   const { summary, draft } = splitSummaryAndDraft(rawText);
+  const cleanSummary = stripAsterisks(summary);
+  const cleanDraft = stripAsterisks(draft);
 
   // ── 4. Save notice & update usage ──────────────────────────────────
   const { data: inserted, error: insertError } = await admin
@@ -229,9 +236,9 @@ Respond now in the NOTICE_SUMMARY / DRAFT_RESPONSE format described in your inst
       notice_type: body.notice_type,
       notice_reference_no: body.notice_reference_no ?? null,
       notice_file_path: body.notice_file_path ?? null,
-      original_notice_text: body.notice_file_path ? summary : body.original_notice_text,
-      ai_draft_response: draft,
-      final_response: draft,
+      original_notice_text: body.notice_file_path ? cleanSummary : body.original_notice_text,
+      ai_draft_response: cleanDraft,
+      final_response: cleanDraft,
       status: "drafted",
     })
     .select("id")
@@ -251,6 +258,11 @@ Respond now in the NOTICE_SUMMARY / DRAFT_RESPONSE format described in your inst
 
   return json({ notice_id: inserted.id });
 });
+
+// Helper function to remove all asterisk characters
+function stripAsterisks(text: string): string {
+  return text.replace(/\*/g, "");
+}
 
 function splitSummaryAndDraft(raw: string): { summary: string; draft: string } {
   const summaryMatch = raw.match(/NOTICE_SUMMARY:\s*([\s\S]*?)\s*DRAFT_RESPONSE:/i);
