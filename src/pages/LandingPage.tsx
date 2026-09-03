@@ -150,7 +150,9 @@ function SiteHeader({ onSignIn, isSignedIn }: { onSignIn: () => void; isSignedIn
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
         <Link to="/" className="flex items-center gap-2.5">
           <SealMark />
-          <span className="text-lg font-semibold tracking-tight text-ink-950">NoticeDesk</span>
+          <span className="text-lg font-semibold tracking-tight text-ink-950">
+            Notice<span className="text-brass-dark">Desk</span>
+          </span>
         </Link>
         <nav className="flex items-center gap-6">
           <Link to="/pricing" className="hidden text-sm text-ink-700 hover:text-ink-950 sm:inline">

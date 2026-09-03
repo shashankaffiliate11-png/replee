@@ -6,6 +6,33 @@ import { PLANS, type PlanDefinition } from "../lib/plans";
 import { openRazorpayCheckout } from "../lib/razorpay";
 import AuthModal from "../components/AuthModal";
 
+// Explicit per-plan color instead of a single "highlighted" flag, since the
+// three cards now each need a distinct color (blue / yellow / blue) rather
+// than "one dark card among plain ones."
+const CARD_THEME: Record<string, { card: string; text: string; subtext: string; feature: string; button: string }> = {
+  free_trial: {
+    card: "bg-ink-900",
+    text: "text-paper",
+    subtext: "text-paper/70",
+    feature: "text-brass-light",
+    button: "bg-brass text-ink-950 hover:bg-brass-light",
+  },
+  starter: {
+    card: "bg-brass",
+    text: "text-ink-950",
+    subtext: "text-ink-950/70",
+    feature: "text-ink-900",
+    button: "bg-ink-950 text-paper hover:bg-ink-900",
+  },
+  professional: {
+    card: "bg-ink-900",
+    text: "text-paper",
+    subtext: "text-paper/70",
+    feature: "text-brass-light",
+    button: "bg-brass text-ink-950 hover:bg-brass-light",
+  },
+};
+
 export default function PricingPage() {
   const { session, user } = useAuth();
   const navigate = useNavigate();
@@ -14,9 +41,6 @@ export default function PricingPage() {
   const [error, setError] = useState<string | null>(null);
   const [justPaid, setJustPaid] = useState(false);
 
-  // Poll briefly after a successful Razorpay payment, since the actual
-  // plan flip happens asynchronously via the razorpay-webhook function,
-  // not in this browser tab.
   useEffect(() => {
     if (!justPaid || !user) return;
     let attempts = 0;
@@ -27,7 +51,7 @@ export default function PricingPage() {
         clearInterval(interval);
         navigate("/app/settings");
       }
-      if (attempts >= 10) clearInterval(interval); // stop after ~20s either way
+      if (attempts >= 10) clearInterval(interval);
     }, 2000);
     return () => clearInterval(interval);
   }, [justPaid, user, navigate]);
@@ -39,7 +63,6 @@ export default function PricingPage() {
       setAuthOpen(true);
       return;
     }
-
     if (plan.priceInr === 0) {
       navigate("/app");
       return;
@@ -78,98 +101,86 @@ export default function PricingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-paper">
-      <header className="border-b border-paper-line">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
-          <Link to="/" className="text-lg font-semibold text-ink-950">NoticeDesk</Link>
+    <div className="flex min-h-screen flex-col overflow-y-auto bg-paper md:h-screen md:overflow-hidden">
+      <header className="shrink-0 border-b border-paper-line">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+          <Link to="/" className="text-lg font-semibold text-ink-950">
+            Notice<span className="text-brass-dark">Desk</span>
+          </Link>
           {session ? (
-            <Link to="/app" className="btn-primary py-2.5">Open app</Link>
+            <Link to="/app" className="btn-primary py-2">Open app</Link>
           ) : (
-            <button onClick={() => setAuthOpen(true)} className="btn-primary py-2.5">Sign in</button>
+            <button onClick={() => setAuthOpen(true)} className="btn-primary py-2">Sign in</button>
           )}
         </div>
       </header>
 
-      <section className="mx-auto max-w-4xl px-6 py-16 text-center">
-        <h1 className="text-3xl font-semibold text-ink-950 md:text-4xl">Pricing that fits a practice, not an enterprise</h1>
-        <p className="mt-3 text-ink-700">Start free. Upgrade only once it's saving you real time.</p>
-      </section>
+      <div className="flex flex-1 flex-col justify-center overflow-hidden">
+        <section className="mx-auto max-w-3xl px-6 pb-6 pt-4 text-center">
+          <h1 className="text-2xl font-semibold text-ink-950 md:text-3xl">
+            Pricing that fits a practice, not an enterprise
+          </h1>
+          <p className="mt-2 text-sm text-ink-700">Start free. Upgrade only once it's saving you real time.</p>
+        </section>
 
-      {justPaid && (
-        <div className="mx-auto mb-8 max-w-md border border-ok/30 bg-ok/5 px-5 py-4 text-center text-sm text-ok">
-          Payment received — confirming your plan now, one moment…
-        </div>
-      )}
+        {justPaid && (
+          <div className="mx-auto mb-4 max-w-md border border-ok/30 bg-ok/5 px-4 py-2.5 text-center text-xs text-ok">
+            Payment received — confirming your plan now, one moment…
+          </div>
+        )}
+        {error && (
+          <div className="mx-auto mb-4 max-w-md border border-warn/30 bg-warn/5 px-4 py-2.5 text-center text-xs text-warn">
+            {error}
+          </div>
+        )}
 
-      {error && (
-        <div className="mx-auto mb-8 max-w-md border border-warn/30 bg-warn/5 px-5 py-4 text-center text-sm text-warn">
-          {error}
-        </div>
-      )}
+        <section className="mx-auto w-full max-w-6xl px-6 pb-6">
+          <div className="grid gap-5 md:grid-cols-3">
+            {PLANS.map((plan) => {
+              const theme = CARD_THEME[plan.code];
+              return (
+                <div key={plan.code} className={`flex flex-col px-5 py-5 ${theme.card} ${theme.text}`}>
+                  <h3 className="text-base font-semibold">{plan.name}</h3>
+                  <p className={`mt-1 text-xs ${theme.subtext}`}>{plan.description}</p>
+                  <p className="mt-3">
+                    <span className="text-2xl font-semibold">
+                      {plan.priceInr === 0 ? "Free" : `₹${plan.priceInr.toLocaleString("en-IN")}`}
+                    </span>
+                    {plan.priceInr > 0 && <span className={theme.subtext}>/month</span>}
+                  </p>
+                  <ul className="mt-3 flex-1 space-y-1.5 text-xs">
+                    {plan.features.map((f) => (
+                      <li key={f} className="flex gap-2">
+                        <span className={theme.feature}>—</span>
+                        <span>{f}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <button
+                    onClick={() => handleChoose(plan)}
+                    disabled={processingPlan !== null}
+                    className={`mt-4 w-full py-2 text-sm font-medium transition-colors disabled:opacity-50 ${theme.button}`}
+                  >
+                    {processingPlan === plan.code
+                      ? "Opening checkout…"
+                      : plan.priceInr === 0
+                      ? "Start free"
+                      : "Choose plan"}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      </div>
 
-      <section className="mx-auto max-w-6xl px-6 pb-20">
-        <div className="grid gap-6 md:grid-cols-3">
-          {PLANS.map((plan) => (
-            <div
-              key={plan.code}
-              className={`flex flex-col border px-6 py-7 ${
-                plan.highlighted ? "border-ink-900 bg-ink-950 text-paper" : "border-paper-line bg-white text-ink-950"
-              }`}
-            >
-              <h3 className="text-lg font-semibold">{plan.name}</h3>
-              <p className={`mt-1 text-sm ${plan.highlighted ? "text-paper/70" : "text-ink-600"}`}>
-                {plan.description}
-              </p>
-              <p className="mt-5">
-                <span className="text-3xl font-semibold">
-                  {plan.priceInr === 0 ? "Free" : `₹${plan.priceInr.toLocaleString("en-IN")}`}
-                </span>
-                {plan.priceInr > 0 && (
-                  <span className={plan.highlighted ? "text-paper/70" : "text-ink-500"}>/month</span>
-                )}
-              </p>
-              <ul className="mt-6 flex-1 space-y-2.5 text-sm">
-                {plan.features.map((f) => (
-                  <li key={f} className="flex gap-2">
-                    <span className={plan.highlighted ? "text-brass-light" : "text-brass-dark"}>—</span>
-                    <span>{f}</span>
-                  </li>
-                ))}
-              </ul>
-              <button
-                onClick={() => handleChoose(plan)}
-                disabled={processingPlan !== null}
-                className={`mt-7 w-full py-2.5 text-sm font-medium disabled:opacity-50 ${
-                  plan.highlighted
-                    ? "bg-paper text-ink-950 hover:bg-paper-dim"
-                    : "border border-ink-900/20 text-ink-950 hover:bg-ink-900/5"
-                }`}
-              >
-                {processingPlan === plan.code
-                  ? "Opening checkout…"
-                  : plan.priceInr === 0
-                  ? "Start free"
-                  : "Choose plan"}
-              </button>
-            </div>
-          ))}
-        </div>
-
-        <div className="mx-auto mt-16 max-w-2xl border-t border-paper-line pt-8 text-sm text-ink-600">
-          <p className="font-medium text-ink-950">A few things worth knowing</p>
-          <ul className="mt-3 space-y-2">
-            <li>— Prices are per practice, not per user. Multi-user firm plans are available on request.</li>
-            <li>— Payments are handled by Razorpay. Your card details never touch NoticeDesk's servers.</li>
-            <li>— You can cancel anytime; access continues until the end of the paid period.</li>
-            <li>— Unused drafts don't roll over month to month.</li>
-          </ul>
-        </div>
-      </section>
-
-      <footer className="border-t border-paper-line">
-        <div className="mx-auto flex max-w-6xl gap-5 px-6 py-8 text-sm text-ink-500">
-          <Link to="/privacy" className="hover:text-ink-800">Privacy Policy</Link>
-          <Link to="/terms" className="hover:text-ink-800">Terms of Service</Link>
+      <footer className="shrink-0 border-t border-paper-line">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3 text-xs text-ink-500">
+          <p>Cancel anytime. Unused drafts don't roll over.</p>
+          <div className="flex gap-4">
+            <Link to="/privacy" className="hover:text-ink-800">Privacy Policy</Link>
+            <Link to="/terms" className="hover:text-ink-800">Terms of Service</Link>
+          </div>
         </div>
       </footer>
 
