@@ -14,4 +14,7 @@ export interface ExtractedNotice {
   confidence_notes: string;
 }
 
+// Export alias to resolve Vercel build errors
+export type NoticeData = ExtractedNotice;
+
 export type FlowStep = "UPLOAD" | "EXTRACTING" | "CONFIRM_EDIT" | "PROCEED_TO_DRAFT";
