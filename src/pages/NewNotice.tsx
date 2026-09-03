@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AppShell from "../components/AppShell";
-import NoticeExtractionForm from "../components/NoticeExtractionForm";
+import NoticeExtractionFlow from "../components/NoticeExtractionFlow";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../context/AuthContext";
-import { NoticeData } from "../types/notice";
+import { ExtractedNotice } from "../types/notice";
 
 const NOTICE_TYPES = [
   "GST ASMT-10 (Scrutiny of returns)",
@@ -32,20 +32,21 @@ export default function NewNotice() {
   const [noticeType, setNoticeType] = useState(NOTICE_TYPES[0]);
   const [referenceNo, setReferenceNo] = useState("");
   const [caseFacts, setCaseFacts] = useState("");
-  const [extractedNoticeData, setExtractedNoticeData] = useState<NoticeData | null>(null);
+  const [extractedNoticeData, setExtractedNoticeData] =
+    useState<ExtractedNotice | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  function handleDataConfirmed(data: NoticeData, uploadedFile: File) {
+  // Aligned with NoticeExtractionFlow's onProceedToDraft callback
+  function handleDataConfirmed(data: ExtractedNotice) {
     setExtractedNoticeData(data);
-    setFile(uploadedFile);
     if (data.notice_ref_no) setReferenceNo(data.notice_ref_no);
     if (data.discrepancy_details) setCaseFacts(data.discrepancy_details);
     if (data.notice_type) {
       const matchedType = NOTICE_TYPES.find((t) =>
-        t.toLowerCase().includes(data.notice_type!.toLowerCase())
+        t.toLowerCase().includes(data.notice_type!.toLowerCase()),
       );
       if (matchedType) setNoticeType(matchedType);
     }
@@ -61,7 +62,9 @@ export default function NewNotice() {
       return;
     }
     if (selected.size > MAX_FILE_BYTES) {
-      setError("File is larger than 10 MB. Try a smaller scan or compress the PDF.");
+      setError(
+        "File is larger than 10 MB. Try a smaller scan or compress the PDF.",
+      );
       return;
     }
     setFile(selected);
@@ -72,11 +75,15 @@ export default function NewNotice() {
     setError(null);
 
     if (inputMode === "upload" && !file) {
-      setError("Attach the notice file, or switch to pasting the text instead.");
+      setError(
+        "Attach the notice file, or switch to pasting the text instead.",
+      );
       return;
     }
     if (inputMode === "paste" && !noticeText.trim()) {
-      setError("Paste the notice text, or switch to uploading the file instead.");
+      setError(
+        "Paste the notice text, or switch to uploading the file instead.",
+      );
       return;
     }
     if (!user) {
@@ -108,17 +115,20 @@ export default function NewNotice() {
 
     setStatusMessage("Reading the notice and drafting a response…");
 
-    const { data, error: fnError } = await supabase.functions.invoke("draft-notice", {
-      body: {
-        client_name: clientName,
-        notice_type: noticeType,
-        notice_reference_no: referenceNo || null,
-        notice_file_path: noticeFilePath,
-        original_notice_text: inputMode === "paste" ? noticeText : null,
-        case_facts: caseFacts,
-        extracted_data: extractedNoticeData,
+    const { data, error: fnError } = await supabase.functions.invoke(
+      "draft-notice",
+      {
+        body: {
+          client_name: clientName,
+          notice_type: noticeType,
+          notice_reference_no: referenceNo || null,
+          notice_file_path: noticeFilePath,
+          original_notice_text: inputMode === "paste" ? noticeText : null,
+          case_facts: caseFacts,
+          extracted_data: extractedNoticeData,
+        },
       },
-    });
+    );
 
     setSubmitting(false);
     setStatusMessage(null);
@@ -140,19 +150,22 @@ export default function NewNotice() {
     <AppShell>
       <h1 className="text-2xl font-semibold text-ink-950">New draft</h1>
       <p className="mt-1 text-sm text-ink-600">
-        Extract information from notice PDF and generate an automated reply draft.
+        Extract information from notice PDF and generate an automated reply
+        draft.
       </p>
 
       {inputMode === "upload" && (
         <div className="mt-6 max-w-2xl">
-          <NoticeExtractionForm onDataConfirmed={handleDataConfirmed} />
+          <NoticeExtractionFlow onProceedToDraft={handleDataConfirmed} />
         </div>
       )}
 
       <form onSubmit={handleSubmit} className="mt-8 max-w-2xl space-y-6">
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label className="field-label" htmlFor="clientName">Client name</label>
+            <label className="field-label" htmlFor="clientName">
+              Client name
+            </label>
             <input
               id="clientName"
               className="input"
@@ -163,7 +176,9 @@ export default function NewNotice() {
             />
           </div>
           <div>
-            <label className="field-label" htmlFor="referenceNo">Notice reference no.</label>
+            <label className="field-label" htmlFor="referenceNo">
+              Notice reference no.
+            </label>
             <input
               id="referenceNo"
               className="input"
@@ -175,7 +190,9 @@ export default function NewNotice() {
         </div>
 
         <div>
-          <label className="field-label" htmlFor="noticeType">Notice type</label>
+          <label className="field-label" htmlFor="noticeType">
+            Notice type
+          </label>
           <select
             id="noticeType"
             className="input"
@@ -183,7 +200,9 @@ export default function NewNotice() {
             onChange={(e) => setNoticeType(e.target.value)}
           >
             {NOTICE_TYPES.map((t) => (
-              <option key={t} value={t}>{t}</option>
+              <option key={t} value={t}>
+                {t}
+              </option>
             ))}
           </select>
         </div>
@@ -194,7 +213,9 @@ export default function NewNotice() {
               type="button"
               onClick={() => setInputMode("upload")}
               className={`flex-1 py-2 font-medium ${
-                inputMode === "upload" ? "bg-white text-ink-950 shadow-sm" : "text-ink-500"
+                inputMode === "upload"
+                  ? "bg-white text-ink-950 shadow-sm"
+                  : "text-ink-500"
               }`}
             >
               Upload notice file
@@ -203,7 +224,9 @@ export default function NewNotice() {
               type="button"
               onClick={() => setInputMode("paste")}
               className={`flex-1 py-2 font-medium ${
-                inputMode === "paste" ? "bg-white text-ink-950 shadow-sm" : "text-ink-500"
+                inputMode === "paste"
+                  ? "bg-white text-ink-950 shadow-sm"
+                  : "text-ink-500"
               }`}
             >
               Paste text instead
@@ -212,7 +235,9 @@ export default function NewNotice() {
 
           {inputMode === "upload" ? (
             <div className="mt-3 text-xs text-ink-600">
-              {file ? `Attached File: ${file.name}` : "Upload PDF using the extraction form above."}
+              {file
+                ? `Attached File: ${file.name}`
+                : "Upload PDF using the extraction form above."}
             </div>
           ) : (
             <textarea
