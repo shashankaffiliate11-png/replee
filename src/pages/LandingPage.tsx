@@ -179,6 +179,10 @@ function SiteFooter() {
           <p>© {new Date().getFullYear()} NoticeDesk. Built for Indian tax practice.</p>
           <p>Not a substitute for professional judgment. Drafts require your review before filing.</p>
         </div>
+        <div className="mt-4 flex gap-5 border-t border-paper-line pt-4">
+          <Link to="/privacy" className="hover:text-ink-800">Privacy Policy</Link>
+          <Link to="/terms" className="hover:text-ink-800">Terms of Service</Link>
+        </div>
       </div>
     </footer>
   );
@@ -187,12 +191,12 @@ function SiteFooter() {
 function SealMark() {
   return (
     <svg width="28" height="28" viewBox="0 0 64 64" fill="none">
-      <rect width="64" height="64" rx="10" fill="#0F0F0F" />
-      <path d="M18 14h20l10 10v26a2 2 0 0 1-2 2H18a2 2 0 0 1-2-2V16a2 2 0 0 1 2-2z" fill="#FFFFFF" />
-      <path d="M38 14v8a2 2 0 0 0 2 2h8" fill="#FBBF24" />
-      <line x1="22" y1="34" x2="42" y2="34" stroke="#0F0F0F" strokeWidth="2" />
-      <line x1="22" y1="40" x2="42" y2="40" stroke="#0F0F0F" strokeWidth="2" />
-      <line x1="22" y1="46" x2="34" y2="46" stroke="#0F0F0F" strokeWidth="2" />
+      <rect width="64" height="64" rx="10" fill="#152140" />
+      <path d="M18 14h20l10 10v26a2 2 0 0 1-2 2H18a2 2 0 0 1-2-2V16a2 2 0 0 1 2-2z" fill="#FAF7F0" />
+      <path d="M38 14v8a2 2 0 0 0 2 2h8" fill="#C79445" />
+      <line x1="22" y1="34" x2="42" y2="34" stroke="#152140" strokeWidth="2" />
+      <line x1="22" y1="40" x2="42" y2="40" stroke="#152140" strokeWidth="2" />
+      <line x1="22" y1="46" x2="34" y2="46" stroke="#152140" strokeWidth="2" />
     </svg>
   );
 }
@@ -210,7 +214,7 @@ function Step({ index, title, body }: { index: string; title: string; body: stri
 function NoticeBeforeAfter() {
   return (
     <div className="relative flex items-center justify-center">
-      <div className="w-full max-w-sm border border-paper-line bg-white p-5 shadow-[6px_6px_0_0_#E5E5E5]">
+      <div className="w-full max-w-sm border border-paper-line bg-white p-5 shadow-[6px_6px_0_0_#E4DCC8]">
         <p className="font-mono text-[10px] text-ink-500">GST ASMT-10 · Notice Reference: ZD290824...</p>
         <div className="mt-3 space-y-2 text-xs leading-relaxed text-ink-700">
           <p>

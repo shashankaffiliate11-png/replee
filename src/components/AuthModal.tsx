@@ -1,14 +1,20 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 export default function AuthModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { signInWithGoogle, signInWithApple } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [loadingProvider, setLoadingProvider] = useState<"google" | "apple" | null>(null);
+  const [consented, setConsented] = useState(false);
 
   if (!open) return null;
 
   async function handle(provider: "google" | "apple") {
+    if (!consented) {
+      setError("Please agree to the Terms of Service and Privacy Policy to continue.");
+      return;
+    }
     setError(null);
     setLoadingProvider(provider);
     try {
@@ -35,19 +41,54 @@ export default function AuthModal({ open, onClose }: { open: boolean; onClose: (
           Your first 3 drafts are free. No card required.
         </p>
 
-        <div className="mt-6 flex flex-col gap-3">
+        <label className="mt-5 flex cursor-pointer items-start gap-2.5 text-xs text-ink-600">
+          <input
+            type="checkbox"
+            checked={consented}
+            onChange={(e) => {
+              setConsented(e.target.checked);
+              if (e.target.checked) setError(null);
+            }}
+            className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-ink-900"
+          />
+          <span>
+            I have read and agree to the{" "}
+            <Link
+              to="/terms"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-brass-dark underline"
+              onClick={(e) => e.stopPropagation()}
+            >
+              Terms of Service
+            </Link>{" "}
+            and{" "}
+            <Link
+              to="/privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-brass-dark underline"
+              onClick={(e) => e.stopPropagation()}
+            >
+              Privacy Policy
+            </Link>
+            .
+          </span>
+        </label>
+
+        <div className="mt-5 flex flex-col gap-3">
           <button
             onClick={() => handle("google")}
-            disabled={loadingProvider !== null}
-            className="flex items-center justify-center gap-3 border border-ink-900/20 bg-white py-3 text-sm font-medium text-ink-950 transition-colors hover:bg-ink-900/5 disabled:opacity-50"
+            disabled={loadingProvider !== null || !consented}
+            className="flex items-center justify-center gap-3 border border-ink-900/20 bg-white py-3 text-sm font-medium text-ink-950 transition-colors hover:bg-ink-900/5 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <GoogleMark />
             {loadingProvider === "google" ? "Redirecting…" : "Continue with Google"}
           </button>
           <button
             onClick={() => handle("apple")}
-            disabled={loadingProvider !== null}
-            className="flex items-center justify-center gap-3 bg-ink-950 py-3 text-sm font-medium text-paper transition-colors hover:bg-ink-900 disabled:opacity-50"
+            disabled={loadingProvider !== null || !consented}
+            className="flex items-center justify-center gap-3 bg-ink-950 py-3 text-sm font-medium text-paper transition-colors hover:bg-ink-900 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <AppleMark />
             {loadingProvider === "apple" ? "Redirecting…" : "Continue with Apple"}
@@ -57,8 +98,8 @@ export default function AuthModal({ open, onClose }: { open: boolean; onClose: (
         {error && <p className="mt-4 text-sm text-warn">{error}</p>}
 
         <p className="mt-6 text-xs text-ink-400">
-          By continuing, you agree this tool produces draft responses for your
-          professional review — you remain responsible for what is filed.
+          This tool produces draft responses for your professional review —
+          you remain responsible for what is filed.
         </p>
 
         <button
@@ -97,7 +138,7 @@ function GoogleMark() {
 
 function AppleMark() {
   return (
-    <svg width="16" height="18" viewBox="0 0 384 512" fill="#FFFFFF">
+    <svg width="16" height="18" viewBox="0 0 384 512" fill="#FAF7F0">
       <path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141 4 184.8 4 273.5q0 39.3 14.4 80.9c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.6zM256.4 89.2c26.9-32 24.5-61.2 23.7-71.7-23.8 1.4-51.3 16.4-67 34.9-17.3 19.8-27.5 44.4-25.3 71.9 25.9 2 49.6-11 68.6-35.1z" />
     </svg>
   );

@@ -166,6 +166,13 @@ export default function PricingPage() {
         </div>
       </section>
 
+      <footer className="border-t border-paper-line">
+        <div className="mx-auto flex max-w-6xl gap-5 px-6 py-8 text-sm text-ink-500">
+          <Link to="/privacy" className="hover:text-ink-800">Privacy Policy</Link>
+          <Link to="/terms" className="hover:text-ink-800">Terms of Service</Link>
+        </div>
+      </footer>
+
       <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
     </div>
   );

@@ -4,32 +4,21 @@
 // Runs server-side so the GEMINI_API_KEY never reaches the browser, and so
 // plan-limit checks can't be bypassed by a client tampering with the request.
 //
-// Accepts EITHER:
+// Uses Google's Gemini API (generativelanguage.googleapis.com) on the free
+// tier. Accepts EITHER:
 //   - notice_file_path: a path in the "notice-uploads" storage bucket
 //     (the actual PDF/scanned image of the notice, read natively by Gemini)
 //   - original_notice_text: pasted plain text of the notice
 // If both are absent, the request is rejected.
 //
-// Deploy with:
+// Deploy via the Supabase Dashboard (Edge Functions → draft-notice → paste
+// this file → Deploy updates), or via CLI:
 //   npx supabase functions deploy draft-notice
-// Set secrets with:
+// Set the secret with:
 //   npx supabase secrets set GEMINI_API_KEY=AIza...
-//
-// FIX (2026-09-03): the previous version rejected any non-POST request —
-// including the browser's CORS preflight OPTIONS request — with a bare 405
-// and no CORS headers on ANY response. That silently blocked every call
-// from the browser regardless of which AI provider was wired up. This
-// version handles OPTIONS explicitly and adds CORS headers to every
-// response, success or error.
+// (or add it under Edge Functions → Secrets in the dashboard)
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*", // tighten to your Vercel domain in production
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
 
 const PLAN_LIMITS: Record<string, number | "unlimited"> = {
   free_trial: 3,
@@ -44,9 +33,7 @@ const MIME_BY_EXTENSION: Record<string, string> = {
   jpeg: "image/jpeg",
 };
 
-const GEMINI_MODEL = "gemini-3.6-flash"; // current GA Flash model as of Sept 2026
-const GEMINI_ENDPOINT =
-  `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+const GEMINI_MODEL = "gemini-2.5-flash";
 
 const SYSTEM_PROMPT = `You are drafting a formal written response to an Indian GST or Income Tax
 department notice, for a practicing Chartered Accountant to review, edit, and
@@ -88,11 +75,6 @@ Rules for the draft response:
   facts.`;
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight FIRST, before any method check.
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
-  }
-
   if (req.method !== "POST") {
     return json({ error: "Method not allowed" }, 405);
   }
@@ -105,11 +87,7 @@ Deno.serve(async (req) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-  const geminiApiKey = Deno.env.get("GEMINI_API_KEY")!;
-
-  if (!geminiApiKey) {
-    return json({ error: "Server is missing GEMINI_API_KEY." }, 500);
-  }
+  const geminiKey = Deno.env.get("GEMINI_API_KEY")!;
 
   const callerClient = createClient(supabaseUrl, anonKey, {
     global: { headers: { Authorization: authHeader } },
@@ -165,16 +143,13 @@ Deno.serve(async (req) => {
     );
   }
 
-  // ── 2. Build the Gemini request parts ────────────────────────────────
-  // Gemini takes a flat array of "parts": inline_data for files, text for
-  // prompts — unlike Claude's typed content blocks, but the same idea.
-  // deno-lint-ignore no-explicit-any
-  const parts: any[] = [];
+  // ── 2. Build the Gemini "parts" array ────────────────────────────────
+  // Gemini's inline_data part is the equivalent of Claude's document/image
+  // content block — same idea (base64 file bytes + a mime type), different
+  // field names.
+  const parts: unknown[] = [];
 
   if (body.notice_file_path) {
-    // Security: notice_file_path must belong to this user's own folder in
-    // the bucket (paths are "<user_id>/<uuid>-<filename>"), otherwise a
-    // tampered request could read another user's uploaded notice.
     if (!String(body.notice_file_path).startsWith(`${user.id}/`)) {
       return json({ error: "Invalid file reference." }, 403);
     }
@@ -189,17 +164,15 @@ Deno.serve(async (req) => {
     }
 
     const extension = String(body.notice_file_path).split(".").pop()?.toLowerCase() ?? "";
-    const mediaType = MIME_BY_EXTENSION[extension];
-    if (!mediaType) {
+    const mimeType = MIME_BY_EXTENSION[extension];
+    if (!mimeType) {
       return json({ error: "Unsupported file type. Upload a PDF, PNG, or JPG." }, 400);
     }
 
     const arrayBuffer = await fileBlob.arrayBuffer();
     const base64Data = arrayBufferToBase64(arrayBuffer);
 
-    parts.push({
-      inline_data: { mime_type: mediaType, data: base64Data },
-    });
+    parts.push({ inline_data: { mime_type: mimeType, data: base64Data } });
   }
 
   const textPrompt = `Notice type: ${body.notice_type}
@@ -221,22 +194,19 @@ Respond now in the NOTICE_SUMMARY / DRAFT_RESPONSE format described in your inst
 
   parts.push({ text: textPrompt });
 
-  // ── 3. Call Gemini ────────────────────────────────────────────────────
-  const geminiRes = await fetch(`${GEMINI_ENDPOINT}?key=${geminiApiKey}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-      contents: [{ role: "user", parts }],
-      // Gemini 3.x models ignore temperature/top-p/top-k entirely; use
-      // thinkingLevel instead. "low" favors faster, more literal drafting
-      // over creative variation, which suits formal legal-register text.
-      generationConfig: {
-        maxOutputTokens: 2500,
-        thinkingConfig: { thinkingLevel: "low" },
-      },
-    }),
-  });
+  // ── 3. Call Gemini ───────────────────────────────────────────────────
+  const geminiRes = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${geminiKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
+        contents: [{ role: "user", parts }],
+        generationConfig: { maxOutputTokens: 2500 },
+      }),
+    }
+  );
 
   if (!geminiRes.ok) {
     const errText = await geminiRes.text();
@@ -245,14 +215,23 @@ Respond now in the NOTICE_SUMMARY / DRAFT_RESPONSE format described in your inst
   }
 
   const geminiData = await geminiRes.json();
-  const rawText = geminiData?.candidates?.[0]?.content?.parts
+  const rawText = geminiData.candidates?.[0]?.content?.parts
     ?.map((p: { text?: string }) => p.text ?? "")
     .join("\n")
     .trim();
 
   if (!rawText) {
-    console.error("Unexpected Gemini response shape:", JSON.stringify(geminiData));
-    return json({ error: "Draft generation returned no content. Please try again." }, 502);
+    // Gemini returns no candidates if it refuses/blocks content — surface
+    // that distinctly rather than a generic failure.
+    const blockReason = geminiData.promptFeedback?.blockReason;
+    return json(
+      {
+        error: blockReason
+          ? `The draft was blocked by Gemini's safety filters (${blockReason}). Try rephrasing the case facts, or switch to a different notice.`
+          : "Draft generation returned no content. Please try again.",
+      },
+      502
+    );
   }
 
   const { summary, draft } = splitSummaryAndDraft(rawText);
@@ -289,9 +268,6 @@ Respond now in the NOTICE_SUMMARY / DRAFT_RESPONSE format described in your inst
   return json({ notice_id: inserted.id });
 });
 
-// Splits the model's "NOTICE_SUMMARY: ... DRAFT_RESPONSE: ..." output into
-// its two parts. Falls back gracefully if the model didn't follow the
-// format exactly, so a formatting slip never loses the draft entirely.
 function splitSummaryAndDraft(raw: string): { summary: string; draft: string } {
   const summaryMatch = raw.match(/NOTICE_SUMMARY:\s*([\s\S]*?)\s*DRAFT_RESPONSE:/i);
   const draftMatch = raw.match(/DRAFT_RESPONSE:\s*([\s\S]*)/i);
@@ -299,13 +275,9 @@ function splitSummaryAndDraft(raw: string): { summary: string; draft: string } {
   if (summaryMatch && draftMatch) {
     return { summary: summaryMatch[1].trim(), draft: draftMatch[1].trim() };
   }
-  // Model didn't use the expected headers — treat the whole thing as the
-  // draft rather than losing content.
   return { summary: "Notice summary unavailable — see draft below.", draft: raw };
 }
 
-// Deno has no Buffer global; encode in chunks to avoid call-stack limits
-// on large PDFs when using String.fromCharCode(...bytes) directly.
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
   const chunkSize = 0x8000;
@@ -320,6 +292,6 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json" },
   });
 }

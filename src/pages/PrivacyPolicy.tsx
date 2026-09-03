@@ -1,0 +1,153 @@
+import { Link } from "react-router-dom";
+
+export default function PrivacyPolicy() {
+  return (
+    <div className="min-h-screen bg-paper">
+      <header className="border-b border-paper-line">
+        <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-5">
+          <Link to="/" className="text-lg font-semibold text-ink-950">NoticeDesk</Link>
+          <Link to="/" className="text-sm text-ink-600 hover:text-ink-950">← Back home</Link>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-3xl px-6 py-14">
+        <h1 className="text-3xl font-semibold text-ink-950">Privacy Policy</h1>
+        <p className="mt-2 text-sm text-ink-500">Last updated: [DATE — fill in before publishing]</p>
+
+        <div className="prose-legal mt-10 space-y-8 text-sm leading-relaxed text-ink-700">
+          <section>
+            <h2 className="text-lg font-semibold text-ink-950">1. Who we are</h2>
+            <p className="mt-2">
+              NoticeDesk ("we," "us") provides a tool for practicing Chartered
+              Accountants to draft responses to GST and Income Tax notices.
+              This policy explains what information we collect, why, and how
+              it's handled when you use the app.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold text-ink-950">2. What we collect</h2>
+            <ul className="mt-2 list-disc space-y-1.5 pl-5">
+              <li>
+                <strong>Account information:</strong> your name, email address,
+                and profile photo, provided via Google or Apple sign-in.
+              </li>
+              <li>
+                <strong>Firm details:</strong> firm name and ICAI membership
+                number, if you choose to provide them.
+              </li>
+              <li>
+                <strong>Notice content:</strong> the text or files (PDF/image)
+                of tax notices you upload, the case facts you enter, and the
+                drafts generated and edited within the app. This may include
+                your clients' names and confidential financial/tax details.
+              </li>
+              <li>
+                <strong>Usage data:</strong> which features you use and how
+                often, to enforce plan limits and improve the product.
+              </li>
+              <li>
+                <strong>Payment information:</strong> handled entirely by
+                Razorpay, our payment processor — we do not receive or store
+                your card or bank details.
+              </li>
+            </ul>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold text-ink-950">3. How we use it</h2>
+            <p className="mt-2">
+              We use your data to: operate the drafting feature (sending
+              notice content to our AI processor to generate a draft),
+              maintain your account and draft history, enforce plan limits,
+              process payments, and communicate with you about your account.
+              We do not sell your data, or your clients' data, to anyone.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold text-ink-950">4. Third parties who process your data</h2>
+            <p className="mt-2">Because of how the app is built, the following third parties handle data on our behalf:</p>
+            <ul className="mt-2 list-disc space-y-1.5 pl-5">
+              <li>
+                <strong>Supabase</strong> — hosts our database, file storage,
+                and authentication. Notice files and drafts are stored here.
+              </li>
+              <li>
+                <strong>Our AI provider</strong> (Anthropic or Google, depending
+                on which model NoticeDesk is configured to use at the time) —
+                receives the notice content and case facts you submit, in
+                order to generate a draft response. [IMPORTANT: state clearly
+                here which provider is actually in use, and link to that
+                provider's own data-handling/API terms — this changes
+                depending on whether the app is running on a paid or free-tier
+                API key, since that affects whether your data is used for
+                model training. Do not leave this vague in the published
+                version.]
+              </li>
+              <li>
+                <strong>Razorpay</strong> — processes subscription payments.
+              </li>
+              <li>
+                <strong>Google/Apple</strong> — used only for authentication;
+                we receive your name, email, and profile photo, nothing else.
+              </li>
+            </ul>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold text-ink-950">5. Your responsibility for client data</h2>
+            <p className="mt-2">
+              As a Chartered Accountant, you remain responsible for your own
+              professional and confidentiality obligations toward your
+              clients. By uploading a client's notice or facts to NoticeDesk,
+              you confirm you have the right to do so, and that using this
+              tool for that purpose is consistent with your obligations to
+              that client.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold text-ink-950">6. Data retention and deletion</h2>
+            <p className="mt-2">
+              We retain your account data and draft history for as long as
+              your account is active. You may request deletion of your
+              account and associated data by contacting us at [SUPPORT EMAIL].
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold text-ink-950">7. Security</h2>
+            <p className="mt-2">
+              Notice files and drafts are stored in a private, access-controlled
+              storage bucket — only you can access your own uploads and drafts.
+              We use industry-standard practices for data in transit and at
+              rest, but no system is 100% secure, and we cannot guarantee
+              absolute security.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold text-ink-950">8. Changes to this policy</h2>
+            <p className="mt-2">
+              We may update this policy from time to time. Material changes
+              will be notified via email or an in-app notice.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold text-ink-950">9. Contact</h2>
+            <p className="mt-2">Questions about this policy: [SUPPORT EMAIL]</p>
+          </section>
+
+          <p className="border-t border-paper-line pt-6 text-xs text-ink-400">
+            This is a template and does not constitute legal advice. Have this
+            reviewed by a qualified lawyer — particularly the third-party
+            data-processing section — before relying on it, given the
+            sensitivity of the client data this app handles.
+          </p>
+        </div>
+      </main>
+    </div>
+  );
+}
