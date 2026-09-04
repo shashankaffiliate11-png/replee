@@ -31,16 +31,17 @@ export default function PricingPage() {
 
   async function handleChoose(plan: PlanDefinition) {
     setError(null);
-    console.log("--> Selected Plan:", plan.code);
 
-    if (!session) {
-      console.log("No active session. Opening auth modal.");
+    // Refresh current session token directly from Supabase
+    const { data: sessionData } = await supabase.auth.getSession();
+    const currentSession = sessionData?.session;
+
+    if (!currentSession) {
       setAuthOpen(true);
       return;
     }
 
     if (plan.priceInr === 0) {
-      console.log("Free plan selected. Redirecting to app dashboard.");
       navigate("/app");
       return;
     }
@@ -48,14 +49,13 @@ export default function PricingPage() {
     setProcessingPlan(plan.code);
 
     try {
-      console.log("Invoking Edge Function: create-razorpay-subscription...");
-
+      // Pass fresh access_token in Authorization headers explicitly
       const { data, error: fnError } = await supabase.functions.invoke("create-razorpay-subscription", {
         body: { plan: plan.code },
+        headers: {
+          Authorization: `Bearer ${currentSession.access_token}`,
+        },
       });
-
-      console.log("Edge Function Data:", data);
-      console.log("Edge Function Error:", fnError);
 
       if (fnError || !data?.subscription_id) {
         let message = "Could not start checkout. Please try again.";
@@ -70,13 +70,10 @@ export default function PricingPage() {
           message = data.error;
         }
 
-        console.error("Payment initiation error:", message);
         setError(message);
         setProcessingPlan(null);
         return;
       }
-
-      console.log("Opening Razorpay checkout with Subscription ID:", data.subscription_id);
 
       const result = await openRazorpayCheckout({
         keyId: data.razorpay_key_id,
@@ -84,14 +81,10 @@ export default function PricingPage() {
         planName: plan.name,
         prefillEmail: user?.email ?? undefined,
         onSuccess: () => {
-          console.log("Razorpay checkout successful.");
           setProcessingPlan(null);
           setJustPaid(true);
         },
-        onDismiss: () => {
-          console.log("Razorpay checkout dismissed by user.");
-          setProcessingPlan(null);
-        },
+        onDismiss: () => setProcessingPlan(null),
       });
 
       if (!result.ok) {
@@ -99,7 +92,6 @@ export default function PricingPage() {
         setProcessingPlan(null);
       }
     } catch (err: any) {
-      console.error("Unexpected checkout error:", err);
       setError(err.message || "An unexpected error occurred.");
       setProcessingPlan(null);
     }

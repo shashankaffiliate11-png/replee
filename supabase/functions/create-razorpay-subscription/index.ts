@@ -6,14 +6,13 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-// Map your plan codes to actual Razorpay Plan IDs created in your Razorpay Dashboard
+// Replace with your actual Razorpay Plan IDs
 const RAZORPAY_PLAN_IDS: Record<string, string> = {
-  starter: "plan_TY0FgepH0ZJYnG",      // Replace with your real Plan ID from Razorpay
-  professional: "plan_TY0HeXe1xuUcfB", // Replace with your real Plan ID from Razorpay
+  starter: "plan_TY0FgepH0ZJYnG",
+  professional: "plan_TY0HeXe1xuUcfB",
 };
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -27,23 +26,19 @@ Deno.serve(async (req) => {
       );
     }
 
+    const token = authHeader.replace("Bearer ", "");
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const keyId = Deno.env.get("RAZORPAY_KEY_ID")!;
     const keySecret = Deno.env.get("RAZORPAY_KEY_SECRET")!;
 
-    // Create Supabase client using the caller's Auth JWT token
-    const supabaseClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-
-    // Authenticate user via JWT
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+    const supabaseClient = createClient(supabaseUrl, anonKey);
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
 
     if (authError || !user) {
       console.error("Auth validation failed:", authError);
       return new Response(
-        JSON.stringify({ error: "Authentication failed. Please log out and log back in." }),
+        JSON.stringify({ error: "Authentication failed. Please sign out and sign in again." }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -51,14 +46,13 @@ Deno.serve(async (req) => {
     const { plan } = await req.json();
     const razorpayPlanId = RAZORPAY_PLAN_IDS[plan];
 
-    if (!razorpayPlanId || razorpayPlanId.includes("Pxxxxxxxxxxxx")) {
+    if (!razorpayPlanId || razorpayPlanId.includes("YOUR_")) {
       return new Response(
         JSON.stringify({ error: `Invalid or unconfigured plan selected: ${plan}` }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Request Razorpay API to create subscription
     const auth = btoa(`${keyId}:${keySecret}`);
     const rzpRes = await fetch("https://api.razorpay.com/v1/subscriptions", {
       method: "POST",
@@ -96,7 +90,6 @@ Deno.serve(async (req) => {
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err: any) {
-    console.error("Unexpected function execution error:", err);
     return new Response(
       JSON.stringify({ error: err.message || "An unexpected error occurred." }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
