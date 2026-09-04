@@ -1,69 +1,74 @@
-// Loads Razorpay's Checkout script once and exposes a typed helper to open
-// the payment widget for a subscription created by the
-// create-razorpay-subscription edge function.
-
-declare global {
-  interface Window {
-    Razorpay: new (options: RazorpayOptions) => { open: () => void };
-  }
-}
-
-interface RazorpayOptions {
-  key: string;
-  subscription_id: string;
-  name: string;
-  description: string;
-  theme?: { color?: string };
-  prefill?: { email?: string; name?: string };
-  handler: (response: unknown) => void;
-  modal?: { ondismiss?: () => void };
-}
-
-let scriptLoadPromise: Promise<boolean> | null = null;
-
-export function loadRazorpayScript(): Promise<boolean> {
-  if (scriptLoadPromise) return scriptLoadPromise;
-
-  scriptLoadPromise = new Promise((resolve) => {
-    if (window.Razorpay) {
-      resolve(true);
-      return;
-    }
-    const script = document.createElement("script");
-    script.src = "https://checkout.razorpay.com/v1/checkout.js";
-    script.onload = () => resolve(true);
-    script.onerror = () => resolve(false);
-    document.body.appendChild(script);
-  });
-
-  return scriptLoadPromise;
-}
-
-export async function openRazorpayCheckout(opts: {
+interface CheckoutOptions {
   keyId: string;
   subscriptionId: string;
   planName: string;
   prefillEmail?: string;
-  prefillName?: string;
   onSuccess: () => void;
   onDismiss: () => void;
-}): Promise<{ ok: boolean; error?: string }> {
-  const loaded = await loadRazorpayScript();
-  if (!loaded) {
-    return { ok: false, error: "Could not load the payment widget. Check your connection and try again." };
+}
+
+declare global {
+  interface Window {
+    Razorpay: any;
   }
+}
 
-  const razorpay = new window.Razorpay({
-    key: opts.keyId,
-    subscription_id: opts.subscriptionId,
-    name: "NoticeDesk",
-    description: `${opts.planName} plan`,
-    theme: { color: "#0F0F0F" },
-    prefill: { email: opts.prefillEmail, name: opts.prefillName },
-    handler: () => opts.onSuccess(),
-    modal: { ondismiss: () => opts.onDismiss() },
+export function openRazorpayCheckout({
+  keyId,
+  subscriptionId,
+  planName,
+  prefillEmail,
+  onSuccess,
+  onDismiss,
+}: CheckoutOptions): Promise<{ ok: boolean; error?: string }> {
+  return new Promise((resolve) => {
+    if (typeof window === "undefined" || !window.Razorpay) {
+      console.error("Razorpay SDK not found on window object.");
+      resolve({
+        ok: false,
+        error: "Razorpay Checkout SDK not loaded. Ensure script is included in index.html.",
+      });
+      return;
+    }
+
+    try {
+      const options = {
+        key: keyId,
+        subscription_id: subscriptionId,
+        name: "NoticeDesk",
+        description: `${planName} Subscription`,
+        prefill: { email: prefillEmail },
+        theme: { color: "#C79445" },
+        handler: function (response: any) {
+          console.log("Razorpay Payment Success Response:", response);
+          onSuccess();
+          resolve({ ok: true });
+        },
+        modal: {
+          ondismiss: function () {
+            console.log("Razorpay Modal Closed.");
+            onDismiss();
+            resolve({ ok: false, error: "Payment window was closed." });
+          },
+        },
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.on("payment.failed", function (response: any) {
+        console.error("Razorpay Payment Failed:", response.error);
+        resolve({
+          ok: false,
+          error: response.error?.description || "Payment failed.",
+        });
+      });
+
+      rzp.open();
+    } catch (err: any) {
+      console.error("Failed to initialize Razorpay modal:", err);
+      resolve({
+        ok: false,
+        error: err.message || "Failed to launch payment checkout.",
+      });
+    }
   });
-
-  razorpay.open();
-  return { ok: true };
 }

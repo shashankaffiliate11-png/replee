@@ -31,44 +31,76 @@ export default function PricingPage() {
 
   async function handleChoose(plan: PlanDefinition) {
     setError(null);
+    console.log("--> Selected Plan:", plan.code);
 
     if (!session) {
+      console.log("No active session. Opening auth modal.");
       setAuthOpen(true);
       return;
     }
+
     if (plan.priceInr === 0) {
+      console.log("Free plan selected. Redirecting to app dashboard.");
       navigate("/app");
       return;
     }
 
     setProcessingPlan(plan.code);
 
-    const { data, error: fnError } = await supabase.functions.invoke("create-razorpay-subscription", {
-      body: { plan: plan.code },
-    });
+    try {
+      console.log("Invoking Edge Function: create-razorpay-subscription...");
 
-    if (fnError || !data?.subscription_id) {
-      const message =
-        (fnError as any)?.context?.body?.error ?? "Could not start checkout. Please try again.";
-      setError(message);
-      setProcessingPlan(null);
-      return;
-    }
+      const { data, error: fnError } = await supabase.functions.invoke("create-razorpay-subscription", {
+        body: { plan: plan.code },
+      });
 
-    const result = await openRazorpayCheckout({
-      keyId: data.razorpay_key_id,
-      subscriptionId: data.subscription_id,
-      planName: plan.name,
-      prefillEmail: user?.email ?? undefined,
-      onSuccess: () => {
+      console.log("Edge Function Data:", data);
+      console.log("Edge Function Error:", fnError);
+
+      if (fnError || !data?.subscription_id) {
+        let message = "Could not start checkout. Please try again.";
+        if (fnError) {
+          try {
+            const errContext = await (fnError as any)?.context?.json();
+            message = errContext?.error || fnError.message || message;
+          } catch {
+            message = fnError.message || message;
+          }
+        } else if (data?.error) {
+          message = data.error;
+        }
+
+        console.error("Payment initiation error:", message);
+        setError(message);
         setProcessingPlan(null);
-        setJustPaid(true);
-      },
-      onDismiss: () => setProcessingPlan(null),
-    });
+        return;
+      }
 
-    if (!result.ok) {
-      setError(result.error ?? "Could not open the payment window.");
+      console.log("Opening Razorpay checkout with Subscription ID:", data.subscription_id);
+
+      const result = await openRazorpayCheckout({
+        keyId: data.razorpay_key_id,
+        subscriptionId: data.subscription_id,
+        planName: plan.name,
+        prefillEmail: user?.email ?? undefined,
+        onSuccess: () => {
+          console.log("Razorpay checkout successful.");
+          setProcessingPlan(null);
+          setJustPaid(true);
+        },
+        onDismiss: () => {
+          console.log("Razorpay checkout dismissed by user.");
+          setProcessingPlan(null);
+        },
+      });
+
+      if (!result.ok) {
+        setError(result.error ?? "Could not open the payment window.");
+        setProcessingPlan(null);
+      }
+    } catch (err: any) {
+      console.error("Unexpected checkout error:", err);
+      setError(err.message || "An unexpected error occurred.");
       setProcessingPlan(null);
     }
   }
@@ -111,6 +143,9 @@ export default function PricingPage() {
           <div className="grid gap-6 md:grid-cols-3">
             {PLANS.map((plan) => {
               const theme = PLAN_CARD_THEME[plan.code];
+              const isThisProcessing = processingPlan === plan.code;
+              const isAnyProcessing = processingPlan !== null;
+
               return (
                 <div key={plan.code} className={`flex flex-col px-6 py-7 ${theme.card} ${theme.text}`}>
                   <h3 className="text-xl font-semibold">{plan.name}</h3>
@@ -130,11 +165,12 @@ export default function PricingPage() {
                     ))}
                   </ul>
                   <button
+                    type="button"
                     onClick={() => handleChoose(plan)}
-                    disabled={processingPlan !== null}
+                    disabled={isAnyProcessing}
                     className={`mt-7 w-full py-3 text-sm font-medium transition-colors disabled:opacity-50 ${theme.button}`}
                   >
-                    {processingPlan === plan.code
+                    {isThisProcessing
                       ? "Opening checkout…"
                       : plan.priceInr === 0
                       ? "Start free"
