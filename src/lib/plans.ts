@@ -62,3 +62,33 @@ export function getPlan(code: PlanCode): PlanDefinition {
   if (!plan) throw new Error(`Unknown plan code: ${code}`);
   return plan;
 }
+
+// Shared card coloring — Free Trial and Professional are blue, Starter is
+// yellow. Defined once here so the landing page's pricing preview and the
+// dedicated /pricing page can never drift out of sync with each other again.
+export const PLAN_CARD_THEME: Record<
+  PlanCode,
+  { card: string; text: string; subtext: string; feature: string; button: string }
+> = {
+  free_trial: {
+    card: "bg-ink-900",
+    text: "text-paper",
+    subtext: "text-paper/70",
+    feature: "text-brass-light",
+    button: "bg-brass text-ink-950 hover:bg-brass-light",
+  },
+  starter: {
+    card: "bg-brass",
+    text: "text-ink-950",
+    subtext: "text-ink-950/70",
+    feature: "text-ink-900",
+    button: "bg-ink-950 text-paper hover:bg-ink-900",
+  },
+  professional: {
+    card: "bg-ink-900",
+    text: "text-paper",
+    subtext: "text-paper/70",
+    feature: "text-brass-light",
+    button: "bg-brass text-ink-950 hover:bg-brass-light",
+  },
+};

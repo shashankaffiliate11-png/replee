@@ -1,7 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
-import { PLANS } from "../lib/plans";
+import { PLANS, PLAN_CARD_THEME } from "../lib/plans";
 import AuthModal from "../components/AuthModal";
 
 export default function LandingPage() {
@@ -95,45 +95,35 @@ export default function LandingPage() {
           Priced for a solo or small practice, not an enterprise compliance department.
         </p>
         <div className="mt-10 grid gap-6 md:grid-cols-3">
-          {PLANS.map((plan) => (
-            <div
-              key={plan.code}
-              className={`flex flex-col border px-6 py-7 ${
-                plan.highlighted ? "border-ink-900 bg-ink-950 text-paper" : "border-paper-line bg-white text-ink-950"
-              }`}
-            >
-              <h3 className="text-lg font-semibold">{plan.name}</h3>
-              <p className={`mt-1 text-sm ${plan.highlighted ? "text-paper/70" : "text-ink-600"}`}>
-                {plan.description}
-              </p>
-              <p className="mt-5">
-                <span className="text-3xl font-semibold">
-                  {plan.priceInr === 0 ? "Free" : `₹${plan.priceInr.toLocaleString("en-IN")}`}
-                </span>
-                {plan.priceInr > 0 && (
-                  <span className={plan.highlighted ? "text-paper/70" : "text-ink-500"}>/month</span>
-                )}
-              </p>
-              <ul className="mt-6 flex-1 space-y-2.5 text-sm">
-                {plan.features.map((f) => (
-                  <li key={f} className="flex gap-2">
-                    <span className={plan.highlighted ? "text-brass-light" : "text-brass-dark"}>—</span>
-                    <span>{f}</span>
-                  </li>
-                ))}
-              </ul>
-              <button
-                onClick={handlePrimaryCta}
-                className={`mt-7 w-full py-2.5 text-sm font-medium ${
-                  plan.highlighted
-                    ? "bg-paper text-ink-950 hover:bg-paper-dim"
-                    : "border border-ink-900/20 text-ink-950 hover:bg-ink-900/5"
-                }`}
-              >
-                {plan.priceInr === 0 ? "Start free" : "Choose plan"}
-              </button>
-            </div>
-          ))}
+          {PLANS.map((plan) => {
+            const theme = PLAN_CARD_THEME[plan.code];
+            return (
+              <div key={plan.code} className={`flex flex-col px-6 py-7 ${theme.card} ${theme.text}`}>
+                <h3 className="text-lg font-semibold">{plan.name}</h3>
+                <p className={`mt-1 text-sm ${theme.subtext}`}>{plan.description}</p>
+                <p className="mt-5">
+                  <span className="text-3xl font-semibold">
+                    {plan.priceInr === 0 ? "Free" : `₹${plan.priceInr.toLocaleString("en-IN")}`}
+                  </span>
+                  {plan.priceInr > 0 && <span className={theme.subtext}>/month</span>}
+                </p>
+                <ul className="mt-6 flex-1 space-y-2.5 text-sm">
+                  {plan.features.map((f) => (
+                    <li key={f} className="flex gap-2">
+                      <span className={theme.feature}>—</span>
+                      <span>{f}</span>
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  onClick={handlePrimaryCta}
+                  className={`mt-7 w-full py-2.5 text-sm font-medium transition-colors ${theme.button}`}
+                >
+                  {plan.priceInr === 0 ? "Start free" : "Choose plan"}
+                </button>
+              </div>
+            );
+          })}
         </div>
       </section>
 

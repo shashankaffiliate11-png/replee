@@ -1,9 +1,7 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import AppShell from "../components/AppShell";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../lib/supabaseClient";
-import { getPlan } from "../lib/plans";
 import type { Profile } from "../lib/database.types";
 
 export default function Settings() {
@@ -43,8 +41,6 @@ export default function Settings() {
     if (!error) setSaved(true);
   }
 
-  const plan = profile ? getPlan(profile.plan) : null;
-
   return (
     <AppShell>
       <h1 className="text-2xl font-semibold text-ink-950">Settings</h1>
@@ -78,20 +74,6 @@ export default function Settings() {
           </button>
           {saved && <span className="ml-3 text-sm text-ok">Saved</span>}
         </form>
-      </section>
-
-      <section className="mt-8 max-w-md border border-paper-line bg-white p-6">
-        <h2 className="font-semibold text-ink-950">Plan</h2>
-        {plan && (
-          <>
-            <p className="mt-2 text-sm text-ink-700">
-              You're on the <span className="font-medium text-ink-950">{plan.name}</span> plan.
-            </p>
-            <Link to="/pricing" className="btn-secondary mt-4 inline-flex">
-              {plan.code === "free_trial" ? "Upgrade plan" : "Change plan"}
-            </Link>
-          </>
-        )}
       </section>
     </AppShell>
   );
