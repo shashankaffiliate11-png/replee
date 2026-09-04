@@ -6,12 +6,6 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-// Replace with your actual Razorpay Plan IDs
-const RAZORPAY_PLAN_IDS: Record<string, string> = {
-  starter: "plan_TY0FgepH0ZJYnG",
-  professional: "plan_TY0HeXe1xuUcfB",
-};
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -29,8 +23,23 @@ Deno.serve(async (req) => {
     const token = authHeader.replace("Bearer ", "");
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const keyId = Deno.env.get("RAZORPAY_KEY_ID")!;
-    const keySecret = Deno.env.get("RAZORPAY_KEY_SECRET")!;
+    const keyId = Deno.env.get("RAZORPAY_KEY_ID");
+    const keySecret = Deno.env.get("RAZORPAY_KEY_SECRET");
+
+    // Plan IDs now come from secrets, not hardcoded in the file. This means
+    // updating a plan ID never requires a redeploy — just `supabase secrets set`.
+    const RAZORPAY_PLAN_IDS: Record<string, string | undefined> = {
+      starter: Deno.env.get("RAZORPAY_PLAN_STARTER"),
+      professional: Deno.env.get("RAZORPAY_PLAN_PROFESSIONAL"),
+    };
+
+    if (!keyId || !keySecret) {
+      console.error("Missing RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET secret.");
+      return new Response(
+        JSON.stringify({ error: "Payments are not configured yet. Please contact support." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     const supabaseClient = createClient(supabaseUrl, anonKey);
     const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
@@ -46,9 +55,10 @@ Deno.serve(async (req) => {
     const { plan } = await req.json();
     const razorpayPlanId = RAZORPAY_PLAN_IDS[plan];
 
-    if (!razorpayPlanId || razorpayPlanId.includes("YOUR_")) {
+    if (!razorpayPlanId) {
+      console.error(`No RAZORPAY_PLAN_${plan.toUpperCase()} secret set for plan: ${plan}`);
       return new Response(
-        JSON.stringify({ error: `Invalid or unconfigured plan selected: ${plan}` }),
+        JSON.stringify({ error: `This plan isn't configured yet. Please contact support.` }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -90,6 +100,7 @@ Deno.serve(async (req) => {
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err: any) {
+    console.error("Unexpected error in create-razorpay-subscription:", err);
     return new Response(
       JSON.stringify({ error: err.message || "An unexpected error occurred." }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
