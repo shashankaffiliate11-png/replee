@@ -32,9 +32,19 @@
     @apply inline-flex items-center justify-center gap-2 rounded-sm border border-ink-900/20 bg-transparent px-5 py-3 text-sm font-medium text-ink-900 transition-colors hover:bg-ink-900/5;
   }
   .field-label {
-    @apply block text-xs font-medium uppercase tracking-wide text-ink-600 mb-1.5;
+    @apply block font-medium uppercase tracking-wide mb-1.5;
   }
   .input {
     @apply w-full rounded-sm border border-ink-900/15 bg-white px-3.5 py-2.5 text-sm text-ink-950 placeholder:text-ink-400 focus:border-brass focus:outline-none;
+  }
+}
+
+/* Force small text utility classes to scale up to text-base and use text-ink-700 color */
+@layer utilities {
+  .text-xs,
+  .text-sm {
+    font-size: 1rem !important; /* Matches default body text size (16px) */
+    line-height: 1.5rem !important;
+    color: #334155 !important; /* Equivalent to text-ink-700 */
   }
 }
