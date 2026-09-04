@@ -78,7 +78,7 @@ export default function LandingPage() {
       <section className="border-b border-paper-line">
         <div className="mx-auto max-w-6xl px-6 py-10">
           <div className="border border-paper-line bg-white px-6 py-5">
-            <p className="text-sm text-ink-700">
+            <p className="mt-2 max-w-prose text-ink-700">
               <span className="font-medium text-ink-950">This tool drafts. You decide.</span>{" "}
               Every response is generated for your professional review — nothing is filed or
               sent on your behalf. You remain responsible for what goes to the department,
