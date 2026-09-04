@@ -25,6 +25,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const navItems = [
     { href: "/app", label: "Dashboard" },
     { href: "/app/new", label: "New draft" },
+    { href: "/app/onboard-client", label: "Onboard Client" },
     { href: "/app/history", label: "History" },
     { href: "/app/settings", label: "Settings" },
   ];
