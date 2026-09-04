@@ -1,130 +1,74 @@
-// Supabase Edge Function: create-razorpay-subscription
-//
-// Called from src/pages/PricingPage.tsx when a signed-in user picks a paid
-// plan. Creates a Razorpay subscription server-side (so RAZORPAY_KEY_SECRET
-// never reaches the browser) and returns just the subscription id + the
-// public Key ID, which the frontend needs to open Razorpay's Checkout widget.
-//
-// The actual plan flip (profiles.plan = 'starter' etc.) does NOT happen
-// here — it happens in razorpay-webhook/index.ts once Razorpay confirms
-// the payment. This function only starts the subscription.
-//
-// Deploy with:
-//   npx supabase functions deploy create-razorpay-subscription
-// Set secrets with:
-//   npx supabase secrets set RAZORPAY_KEY_ID=rzp_live_xxx RAZORPAY_KEY_SECRET=xxx
-//   npx supabase secrets set RAZORPAY_PLAN_STARTER=plan_xxx RAZORPAY_PLAN_PROFESSIONAL=plan_yyy
-//
-// (RAZORPAY_PLAN_STARTER / RAZORPAY_PLAN_PROFESSIONAL are the Plan IDs you
-// create in the Razorpay Dashboard → Subscriptions → Plans — one per paid
-// tier. See README.md section 8 for the full walkthrough.)
-
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
-const PLAN_ID_ENV_MAP: Record<string, string> = {
-  starter: "RAZORPAY_PLAN_STARTER",
-  professional: "RAZORPAY_PLAN_PROFESSIONAL",
-};
-
-// Required for the browser to be allowed to call this function at all —
-// without handling the OPTIONS preflight below, calls from the frontend
-// fail with a 405 before the real POST ever goes out.
-const CORS_HEADERS = {
+const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+// Map plan codes to Razorpay Plan IDs (Created in Razorpay Dashboard)
+const RAZORPAY_PLAN_IDS: Record<string, string> = {
+  starter: "plan_Pxxxxxxxxxxxx1",      // Replace with your actual Plan ID from Razorpay
+  professional: "plan_Pxxxxxxxxxxxx2", // Replace with your actual Plan ID from Razorpay
+};
+
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: CORS_HEADERS });
-  }
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
-  if (req.method !== "POST") {
-    return json({ error: "Method not allowed" }, 405);
-  }
+  try {
+    const authHeader = req.headers.get("Authorization")!;
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const keyId = Deno.env.get("RAZORPAY_KEY_ID")!;
+    const keySecret = Deno.env.get("RAZORPAY_KEY_SECRET")!;
 
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader) {
-    return json({ error: "Missing authorization" }, 401);
-  }
+    const callerClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
 
-  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-  const razorpayKeyId = Deno.env.get("RAZORPAY_KEY_ID")!;
-  const razorpayKeySecret = Deno.env.get("RAZORPAY_KEY_SECRET")!;
+    const { data: { user } } = await callerClient.auth.getUser();
+    if (!user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
+    }
 
-  const callerClient = createClient(supabaseUrl, anonKey, {
-    global: { headers: { Authorization: authHeader } },
-  });
-  const {
-    data: { user },
-    error: userError,
-  } = await callerClient.auth.getUser();
+    const { plan } = await req.json();
+    const razorpayPlanId = RAZORPAY_PLAN_IDS[plan];
 
-  if (userError || !user) {
-    return json({ error: "Not authenticated" }, 401);
-  }
+    if (!razorpayPlanId) {
+      return new Response(JSON.stringify({ error: "Invalid plan selected" }), { status: 400, headers: corsHeaders });
+    }
 
-  const body = await req.json().catch(() => null);
-  const planCode = body?.plan as string | undefined;
-
-  if (!planCode || !PLAN_ID_ENV_MAP[planCode]) {
-    return json({ error: "Unknown or unsupported plan. Use 'starter' or 'professional'." }, 400);
-  }
-
-  const razorpayPlanId = Deno.env.get(PLAN_ID_ENV_MAP[planCode]);
-  if (!razorpayPlanId) {
-    return json(
-      {
-        error: `${PLAN_ID_ENV_MAP[planCode]} is not configured. Set it with 'supabase secrets set' once you've created the plan in Razorpay.`,
+    // Call Razorpay API to create a subscription
+    const auth = btoa(`${keyId}:${keySecret}`);
+    const rzpRes = await fetch("https://api.razorpay.com/v1/subscriptions", {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${auth}`,
+        "Content-Type": "application/json",
       },
-      500
+      body: JSON.stringify({
+        plan_id: razorpayPlanId,
+        total_count: 12,
+        quantity: 1,
+        customer_notify: 1,
+        notes: { user_id: user.id, plan_code: plan },
+      }),
+    });
+
+    const subscription = await rzpRes.json();
+    if (!rzpRes.ok) {
+      console.error("Razorpay error:", subscription);
+      return new Response(JSON.stringify({ error: subscription.error?.description || "Subscription creation failed" }), { status: 500, headers: corsHeaders });
+    }
+
+    return new Response(
+      JSON.stringify({
+        subscription_id: subscription.id,
+        razorpay_key_id: keyId,
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
+  } catch (err: any) {
+    return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: corsHeaders });
   }
-
-  // Razorpay's Subscriptions API uses HTTP Basic Auth with your Key ID/Secret.
-  const authToken = btoa(`${razorpayKeyId}:${razorpayKeySecret}`);
-
-  const razorpayRes = await fetch("https://api.razorpay.com/v1/subscriptions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Basic ${authToken}`,
-    },
-    body: JSON.stringify({
-      plan_id: razorpayPlanId,
-      customer_notify: 1,
-      // 120 monthly cycles ≈ 10 years, effectively "until cancelled" —
-      // Razorpay subscriptions require a total_count, there's no literal
-      // "forever" option.
-      total_count: 120,
-      notes: {
-        // The webhook handler reads this to know which Supabase user to
-        // update once payment is confirmed — without it, a successful
-        // Razorpay payment would have no way to map back to a user.
-        supabase_user_id: user.id,
-      },
-    }),
-  });
-
-  if (!razorpayRes.ok) {
-    const errText = await razorpayRes.text();
-    console.error("Razorpay subscription creation failed:", errText);
-    return json({ error: "Could not start checkout. Please try again." }, 502);
-  }
-
-  const subscription = await razorpayRes.json();
-
-  return json({
-    subscription_id: subscription.id,
-    razorpay_key_id: razorpayKeyId,
-  });
 });
-
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", ...CORS_HEADERS },
-  });
-}

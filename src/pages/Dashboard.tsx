@@ -63,7 +63,7 @@ export default function Dashboard() {
           to="/app/new"
           className={`btn-primary ${limitReached ? "pointer-events-none opacity-40" : ""}`}
         >
-          + New draft
+          + Draft New Response
         </Link>
       </div>
 

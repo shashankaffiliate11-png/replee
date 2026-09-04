@@ -147,7 +147,7 @@ export default function NewNotice() {
   return (
     <AppShell>
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-2xl font-semibold text-ink-950 mb-1">New Draft</h1>
+        <h1 className="text-2xl font-semibold text-ink-950 mb-1">Draft New Response</h1>
         <p className="text-sm text-ink-600 mb-6">Select a client and upload notice to generate automated response.</p>
 
         {error && (

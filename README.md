@@ -10,7 +10,7 @@ GST & Income Tax notice response drafting for practicing Chartered Accountants i
 
 ```
 src/
-  pages/          Landing page, login, onboarding, dashboard, new draft,
+  pages/          Landing page, login, onboarding, dashboard, Draft New Response,
                    draft detail/review, history, settings, pricing
   components/      AppShell (sidebar), AuthModal (Google/Apple), ProtectedRoute
   context/         AuthContext — wraps Supabase auth session
@@ -148,6 +148,7 @@ browser → on payment, Razorpay calls `razorpay-webhook` → that updates
    you're ready for real payments).
 
 4. **Set edge function secrets:**
+
    ```bash
    supabase secrets set RAZORPAY_KEY_ID=rzp_test_xxxxxxxxxx
    supabase secrets set RAZORPAY_KEY_SECRET=your_key_secret
@@ -156,22 +157,26 @@ browser → on payment, Razorpay calls `razorpay-webhook` → that updates
    ```
 
 5. **Deploy both Razorpay-related functions:**
+
    ```bash
    supabase functions deploy create-razorpay-subscription
    supabase functions deploy razorpay-webhook --no-verify-jwt
    ```
+
    (`--no-verify-jwt` matters for the webhook — Razorpay calls it directly,
    with no Supabase user session attached.)
 
 6. **Fill in the plan map** in
    `supabase/functions/razorpay-webhook/index.ts` — replace the commented-out
    lines in `RAZORPAY_PLAN_MAP` with your real Plan IDs from step 2:
+
    ```ts
    const RAZORPAY_PLAN_MAP: Record<string, "starter" | "professional"> = {
-     "plan_your_starter_plan_id": "starter",
-     "plan_your_professional_plan_id": "professional",
+     plan_your_starter_plan_id: "starter",
+     plan_your_professional_plan_id: "professional",
    };
    ```
+
    Redeploy the webhook after editing this.
 
 7. **Register the webhook URL** in Razorpay Dashboard → Settings → Webhooks
@@ -180,6 +185,7 @@ browser → on payment, Razorpay calls `razorpay-webhook` → that updates
    Enable these events: `subscription.activated`, `subscription.charged`,
    `subscription.cancelled`, `subscription.completed`. Razorpay will show
    you a webhook secret — set it:
+
    ```bash
    supabase secrets set RAZORPAY_WEBHOOK_SECRET=whsec_xxxxxxxxxx
    ```
