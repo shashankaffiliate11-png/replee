@@ -12,6 +12,8 @@ export default function Dashboard() {
   const [usage, setUsage] = useState<UsageCounter | null>(null);
   const [recent, setRecent] = useState<Notice[]>([]);
   const [automatedNotices, setAutomatedNotices] = useState<any[]>([]);
+  const [clients, setClients] = useState<{ id: string; legal_name: string }[]>([]);
+  const [assigningId, setAssigningId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -19,8 +21,8 @@ export default function Dashboard() {
     const periodMonth = `${new Date().toISOString().slice(0, 7)}-01`;
 
     async function load() {
-      // 1. Fetch Supabase profile, usage, and user notices
-      const [{ data: profileData }, { data: usageData }, { data: notices }] = await Promise.all([
+      // 1. Fetch Supabase profile, usage, recent notices, and this firm's clients
+      const [{ data: profileData }, { data: usageData }, { data: notices }, { data: clientRows }] = await Promise.all([
         supabase.from("profiles").select("*").eq("id", user!.id).maybeSingle(),
         supabase
           .from("usage_counters")
@@ -33,12 +35,20 @@ export default function Dashboard() {
           .select("*")
           .eq("user_id", user!.id)
           .order("created_at", { ascending: false })
-          .limit(5),
+          .limit(10),
+        supabase.from("clients").select("id, legal_name").eq("firm_id", user!.id).order("legal_name"),
       ]);
 
       setProfile(profileData);
       setUsage(usageData ?? { user_id: user!.id, period_month: periodMonth, notices_used: 0 });
-      setRecent(notices ?? []);
+      // Exclude un-triaged Gmail notices here — they live in the Inbox section
+      // below instead, so the same row never shows up in both lists at once.
+      setRecent(
+        (notices ?? [])
+          .filter((n: any) => !(n.source === "gmail" && !n.client_id))
+          .slice(0, 5)
+      );
+      setClients(clientRows ?? []);
 
       // 2. Fetch ingested automated notices from the Express API
       try {
@@ -65,6 +75,45 @@ export default function Dashboard() {
   const used = usage?.notices_used ?? 0;
   const limit = plan?.noticesPerMonth ?? 3;
   const limitReached = limit !== "unlimited" && used >= limit;
+
+  // Un-triaged inbox = Gmail-detected notices no one has assigned to a client yet.
+  const inbox = automatedNotices.filter((n) => !n.client_id);
+
+  function urgencyClasses(dueDate?: string | null): string {
+    if (!dueDate) return "border-paper-line";
+    const daysLeft = (new Date(dueDate).getTime() - Date.now()) / 86_400_000;
+    if (daysLeft < 0) return "border-red-300 bg-red-50/50";
+    if (daysLeft <= 7) return "border-amber-300 bg-amber-50/50";
+    return "border-paper-line";
+  }
+
+  async function assignClient(noticeId: string, clientId: string) {
+    const client = clients.find((c) => c.id === clientId);
+    if (!client) return;
+
+    setAssigningId(noticeId);
+    const { error } = await supabase
+      .from("notices")
+      .update({ client_id: client.id, client_name: client.legal_name, status: "drafted" })
+      .eq("id", noticeId);
+
+    if (error) {
+      console.error("Failed to assign client:", error.message);
+      setAssigningId(null);
+      return;
+    }
+
+    // Move it out of the Inbox and into Recent drafts, optimistically —
+    // no refetch needed, and it now behaves like any manually-created draft.
+    const assigned = automatedNotices.find((n) => n.id === noticeId);
+    setAutomatedNotices((prev) => prev.filter((n) => n.id !== noticeId));
+    if (assigned) {
+      setRecent((prev) =>
+        [{ ...assigned, client_id: client.id, client_name: client.legal_name, status: "drafted" }, ...prev].slice(0, 5)
+      );
+    }
+    setAssigningId(null);
+  }
 
   return (
     <AppShell>
@@ -125,48 +174,71 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Real-time Ingested Tax Notices (Gmail & AI Webhook) */}
+      {/* Inbox — Gmail-detected notices awaiting client assignment */}
       <div className="mt-10">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-ink-950">Ingested Tax Notices (Gmail)</h2>
+          <h2 className="text-lg font-semibold text-ink-950">
+            Inbox — Needs Review{inbox.length > 0 ? ` (${inbox.length})` : ""}
+          </h2>
         </div>
 
         {loading ? (
-          <p className="mt-4 text-sm text-ink-500">Loading automated notices…</p>
-        ) : automatedNotices.length === 0 ? (
+          <p className="mt-4 text-sm text-ink-500">Checking for new notices…</p>
+        ) : inbox.length === 0 ? (
           <div className="mt-4 border border-dashed border-paper-line p-6 text-center">
-            <p className="text-sm text-ink-600">No automated notices detected yet.</p>
+            <p className="text-sm text-ink-600">Nothing waiting on you — new Gmail notices will show up here.</p>
           </div>
         ) : (
-          <div className="mt-4 divide-y divide-paper-line border border-paper-line bg-white">
-            {automatedNotices.map((notice) => (
-              <div key={notice.id} className="p-5 hover:bg-paper-dim">
-                <div className="flex items-center justify-between">
+          <div className="mt-4 space-y-3">
+            {inbox.map((notice) => (
+              <div
+                key={notice.id}
+                className={`border p-5 bg-white ${urgencyClasses(notice.compliance_due_date)}`}
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="text-sm font-semibold text-ink-950">
                       {notice.notice_type || "Tax Notice"} — {notice.tax_authority || "Department"}
                     </p>
-                    <p className="text-xs text-ink-500">
-                      From: {notice.email_address} · Due Date: {notice.compliance_due_date || "N/A"}
+                    <p className="mt-0.5 text-xs text-ink-500">
+                      From: {notice.email_address}
+                      {notice.compliance_due_date ? ` · Due: ${notice.compliance_due_date}` : ""}
                     </p>
                   </div>
-                  <span className="border border-brass/30 bg-brass/10 px-2 py-0.5 text-xs font-medium uppercase text-brass-dark">
-                    {notice.status}
+                  <span className="border border-brass/30 bg-brass/10 px-2 py-0.5 text-xs font-medium uppercase text-brass-dark whitespace-nowrap">
+                    Gmail
                   </span>
                 </div>
+
                 {notice.summary && (
                   <p className="mt-2 text-xs text-ink-700 bg-paper-dim p-2.5 rounded">
                     <strong>Summary:</strong> {notice.summary}
                   </p>
                 )}
-                {notice.drafted_reply && (
-                  <div className="mt-3">
-                    <p className="text-xs font-medium text-ink-800">AI Drafted Reply:</p>
-                    <p className="mt-1 text-xs text-ink-600 line-clamp-3 whitespace-pre-wrap italic bg-gray-50 p-2.5 border border-paper-line">
-                      {notice.drafted_reply}
-                    </p>
-                  </div>
-                )}
+
+                <div className="mt-3 flex items-center gap-2">
+                  <label className="text-xs font-medium text-ink-700">Assign to client:</label>
+                  <select
+                    className="input text-xs py-1.5 max-w-xs"
+                    disabled={assigningId === notice.id}
+                    defaultValue=""
+                    onChange={(e) => e.target.value && assignClient(notice.id, e.target.value)}
+                  >
+                    <option value="" disabled>
+                      {assigningId === notice.id ? "Assigning…" : "Select a client…"}
+                    </option>
+                    {clients.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.legal_name}
+                      </option>
+                    ))}
+                  </select>
+                  {clients.length === 0 && (
+                    <Link to="/app/onboard-client" className="text-xs text-brass-dark underline">
+                      Onboard a client first
+                    </Link>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -204,6 +276,7 @@ export default function Dashboard() {
                   <p className="text-xs text-ink-500">
                     {notice.notice_type}
                     {notice.notice_reference_no ? ` · ${notice.notice_reference_no}` : ""}
+                    {(notice as any).source === "gmail" ? " · via Gmail" : ""}
                   </p>
                 </div>
                 <span className="text-xs uppercase tracking-wide text-ink-400">{notice.status}</span>
