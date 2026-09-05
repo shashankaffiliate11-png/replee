@@ -94,7 +94,7 @@ export default function Dashboard() {
     setAssigningId(noticeId);
     const { error } = await supabase
       .from("notices")
-      .update({ client_id: client.id, client_name: client.legal_name, status: "drafted" })
+      .update({ client_id: client.id, client_name: client.legal_name, status: "drafted" } as any)
       .eq("id", noticeId);
 
     if (error) {
