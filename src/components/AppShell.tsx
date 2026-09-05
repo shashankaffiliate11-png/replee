@@ -1,125 +1,125 @@
+import { ReactNode, useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { useEffect, useState, type ReactNode } from "react";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../lib/supabaseClient";
 import { getPlan } from "../lib/plans";
-import type { PlanCode } from "../lib/database.types";
+import type { Profile, UsageCounter } from "../lib/database.types";
 
-export default function AppShell({ children }: { children: ReactNode }) {
-  const { signOut, user } = useAuth();
+interface AppShellProps {
+  children: ReactNode;
+}
+
+export default function AppShell({ children }: AppShellProps) {
+  const { user, signOut } = useAuth();
   const location = useLocation();
-  const [planCode, setPlanCode] = useState<PlanCode | null>(null);
+
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [usage, setUsage] = useState<UsageCounter | null>(null);
 
   useEffect(() => {
     if (!user) return;
-    supabase
-      .from("profiles")
-      .select("plan")
-      .eq("id", user.id)
-      .maybeSingle()
-      .then(({ data }) => setPlanCode(data?.plan ?? "free_trial"));
+    const periodMonth = `${new Date().toISOString().slice(0, 7)}-01`;
+
+    async function loadSidebarData() {
+      const [{ data: profileData }, { data: usageData }] = await Promise.all([
+        supabase.from("profiles").select("*").eq("id", user!.id).maybeSingle(),
+        supabase
+          .from("usage_counters")
+          .select("*")
+          .eq("user_id", user!.id)
+          .eq("period_month", periodMonth)
+          .maybeSingle(),
+      ]);
+
+      setProfile(profileData);
+      setUsage(usageData ?? { user_id: user!.id, period_month: periodMonth, notices_used: 0 });
+    }
+
+    loadSidebarData();
   }, [user]);
 
-  const plan = planCode ? getPlan(planCode) : null;
+  const plan = profile ? getPlan(profile.plan) : null;
+  const used = usage?.notices_used ?? 0;
+  const limit = plan?.noticesPerMonth ?? 3;
 
   const navItems = [
-    { href: "/app", label: "Dashboard" },
-    { href: "/app/new", label: "Draft New Response" },
-    { href: "/app/onboard-client", label: "Onboard Client" },
-    { href: "/app/history", label: "History" },
-    { href: "/app/settings", label: "Settings" },
+    { label: "Dashboard", path: "/app/dashboard" },
+    { label: "Draft New Response", path: "/app/new" },
+    { label: "Onboard Client", path: "/app/clients" },
+    { label: "History", path: "/app/history" },
+    { label: "Settings", path: "/app/settings" },
   ];
 
   return (
-    <div className="flex min-h-screen bg-paper">
-      <aside className="hidden w-56 shrink-0 border-r border-paper-line bg-paper-dim md:block">
-        <div className="px-5 py-6">
-          <Link to="/" className="flex items-center gap-2.5">
-            <SealMark />
-            <span className="font-semibold text-ink-950">
-              Notice<span className="text-brass-dark">Desk</span>
+    <div className="flex min-h-screen bg-paper-base">
+      {/* Sidebar Container */}
+      <aside className="flex w-64 flex-col justify-between border-r border-paper-line bg-paper-dim p-6">
+        <div>
+          {/* Brand Logo */}
+          <Link to="/app/dashboard" className="flex items-center gap-2 text-xl font-bold text-black">
+            <span className="text-2xl">📄</span>
+            <span>
+              Notice<span className="text-brass">Desk</span>
             </span>
           </Link>
+
+          {/* Navigation Links */}
+          <nav className="mt-8 flex flex-col gap-1">
+            {navItems.map((item) => {
+              const isActive = location.pathname === item.path;
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className={`px-3 py-2 text-sm transition-colors rounded ${
+                    isActive
+                      ? "bg-yellow-400 text-black font-semibold"
+                      : "text-black hover:bg-yellow-100 font-medium"
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+          </nav>
         </div>
-        <nav className="px-3">
-          {navItems.map((item) => {
-            const active = location.pathname === item.href;
-            return (
-              <Link
-                key={item.href}
-                to={item.href}
-                className={`block rounded-sm px-3 py-2 text-sm ${
-                  active ? "bg-ink-900 text-paper" : "text-ink-700 hover:bg-ink-900/5"
-                }`}
-              >
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
-        <div className="absolute bottom-0 w-56 border-t border-paper-line px-5 py-4">
-          {plan && (
-            <div className="mb-3 flex items-center justify-between">
-              <span className="text-xs text-ink-600">
-                You're on the <span className="font-medium text-ink-950">{plan.name}</span> plan.
-              </span>
-            </div>
-          )}
-          {plan && plan.code !== "professional" && (
-            <Link
-              to="/pricing"
-              className="mb-3 inline-block border border-ink-900/20 px-3 py-1.5 text-xs font-medium text-ink-950 hover:bg-ink-900/5"
+
+        {/* Sidebar Footer */}
+        <div className="border-t border-paper-line pt-4 text-xs text-black">
+          {/* Plan Status */}
+          <p>
+            You're on the{" "}
+            <strong className="font-semibold">{plan?.name || "Professional"}</strong> plan.
+          </p>
+
+          {/* Draft Usage Displayed in Sidebar */}
+          <p className="mt-1 font-medium text-black">
+            {used} of {limit === "unlimited" ? "unlimited" : limit} drafts used this month
+          </p>
+
+          {/* Upgrade Plan Action */}
+          <Link
+            to="/pricing"
+            className="mt-2 block font-semibold text-black underline hover:text-brass-dark"
+          >
+            Upgrade Plan →
+          </Link>
+
+          {/* User Account Details */}
+          <div className="mt-4 pt-3 border-t border-paper-line">
+            <p className="truncate text-black font-medium">{user?.email}</p>
+            <button
+              onClick={() => signOut()}
+              className="mt-1 text-black underline hover:text-warn text-left"
             >
-              Upgrade plan
-            </Link>
-          )}
-          <p className="truncate text-xs text-ink-500">{user?.email}</p>
-          <button onClick={signOut} className="mt-2 text-xs text-ink-600 hover:text-ink-950">
-            Sign out
-          </button>
+              Sign out
+            </button>
+          </div>
         </div>
       </aside>
 
-      <div className="flex-1">
-        {/* Mobile top bar */}
-        <div className="flex items-center justify-between border-b border-paper-line px-4 py-3 md:hidden">
-          <Link to="/app" className="flex items-center gap-2">
-            <SealMark />
-            <span className="font-semibold text-ink-950">
-              Notice<span className="text-brass-dark">Desk</span>
-            </span>
-          </Link>
-          <button onClick={signOut} className="text-xs text-ink-600">
-            Sign out
-          </button>
-        </div>
-        <div className="flex gap-1 overflow-x-auto border-b border-paper-line px-4 py-2 md:hidden">
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              to={item.href}
-              className="shrink-0 px-3 py-1.5 text-xs text-ink-700"
-            >
-              {item.label}
-            </Link>
-          ))}
-        </div>
-
-        <main className="mx-auto max-w-5xl px-6 py-8">{children}</main>
-      </div>
+      {/* Main Content Area */}
+      <main className="flex-1 p-8">{children}</main>
     </div>
-  );
-}
-
-function SealMark() {
-  return (
-    <svg width="24" height="24" viewBox="0 0 64 64" fill="none">
-      <rect width="64" height="64" rx="10" fill="#152140" />
-      <path d="M18 14h20l10 10v26a2 2 0 0 1-2 2H18a2 2 0 0 1-2-2V16a2 2 0 0 1 2-2z" fill="#FAF7F0" />
-      <path d="M38 14v8a2 2 0 0 0 2 2h8" fill="#C79445" />
-      <line x1="22" y1="34" x2="42" y2="34" stroke="#152140" strokeWidth="2" />
-      <line x1="22" y1="40" x2="42" y2="40" stroke="#152140" strokeWidth="2" />
-      <line x1="22" y1="46" x2="34" y2="46" stroke="#152140" strokeWidth="2" />
-    </svg>
   );
 }
