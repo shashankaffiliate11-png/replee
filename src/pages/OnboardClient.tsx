@@ -104,37 +104,37 @@ export default function OnboardClient() {
 
   return (
     <AppShell>
-      <div className="max-w-4xl mx-auto py-2">
+      <div className="max-w-4xl mx-auto py-1">
         {/* Page Header */}
-        <div className="mb-8">
-          <h1 className="text-2xl font-semibold text-ink-950 mb-1">Onboard Client</h1>
-          <p className="text-sm text-ink-600">
+        <div className="mb-2">
+          <h1 className="text-xl font-semibold text-ink-950 mb-0.5">Onboard Client</h1>
+          <p className="text-xs text-ink-600">
             Upload onboarding documents (GST, Partnership Deed, PAN, etc.) to auto-populate client fields.
           </p>
         </div>
 
         {error && (
-          <div className="mb-6 p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-md">
+          <div className="mb-2 p-2 bg-red-50 border border-red-200 text-red-700 text-xs rounded-md">
             {error}
           </div>
         )}
 
         {successMessage && (
-          <div className="mb-6 p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs rounded-md">
+          <div className="mb-2 p-2 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs rounded-md">
             {successMessage}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-8">
+        <form onSubmit={handleSubmit} className="space-y-2">
           {/* Document Upload Area */}
           <div className="flex justify-center">
-            <div className="w-full max-w-md bg-white border border-paper-line rounded-lg p-6 text-center shadow-sm">
-              <label className="block text-xs font-semibold text-ink-900 uppercase tracking-wide mb-1">
+            <div className="w-full max-w-md bg-white border border-paper-line rounded-lg p-3 text-center shadow-sm">
+              <label className="block text-xs font-semibold text-ink-900 uppercase tracking-wide mb-0.5">
                 Upload Document
               </label>
-              <p className="text-xs text-ink-500 mb-4">Supported formats: PDF, PNG, JPG (up to 10MB)</p>
+              <p className="text-xs text-ink-500 mb-1.5">Supported formats: PDF, PNG, JPG (up to 10MB)</p>
 
-              <div className="bg-paper-dim border border-dashed border-paper-line rounded-md p-6 flex flex-col items-center justify-center">
+              <div className="bg-paper-dim border border-dashed border-paper-line rounded-md p-2 flex flex-col items-center justify-center">
                 <input
                   type="file"
                   id="client-doc-upload"
@@ -148,22 +148,22 @@ export default function OnboardClient() {
                 >
                   {parsing ? "Parsing document..." : "Click to select or drop document here"}
                 </label>
-                {file && <p className="mt-2 text-xs text-emerald-600 font-medium">Selected: {file.name}</p>}
+                {file && <p className="mt-1 text-xs text-emerald-600 font-medium">Selected: {file.name}</p>}
               </div>
             </div>
           </div>
 
           {/* OR Divider */}
-          <div className="flex items-center justify-center my-6">
-            <span className="text-sm font-semibold text-ink-500 uppercase tracking-widest">OR</span>
+          <div className="flex items-center justify-center my-1">
+            <span className="text-xs font-semibold text-ink-500 uppercase tracking-widest">OR</span>
           </div>
 
           {/* Form Fields - 2 Column Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 bg-white p-6 border border-paper-line rounded-lg shadow-sm">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 bg-white p-4 border border-paper-line rounded-lg shadow-sm">
             {/* Left Column */}
-            <div className="space-y-5">
+            <div className="space-y-2">
               <div>
-                <label className="block text-xs font-semibold text-ink-900 uppercase tracking-wide mb-1">
+                <label className="block text-xs font-semibold text-ink-900 uppercase tracking-wide mb-0.5">
                   LEGAL NAME *
                 </label>
                 <input
@@ -176,9 +176,9 @@ export default function OnboardClient() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-ink-900 uppercase tracking-wide mb-1">
+                  <label className="block text-xs font-semibold text-ink-900 uppercase tracking-wide mb-0.5">
                     TRADE NAME
                   </label>
                   <input
@@ -190,7 +190,7 @@ export default function OnboardClient() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-ink-900 uppercase tracking-wide mb-1">
+                  <label className="block text-xs font-semibold text-ink-900 uppercase tracking-wide mb-0.5">
                     PAN
                   </label>
                   <input
@@ -204,7 +204,7 @@ export default function OnboardClient() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-ink-900 uppercase tracking-wide mb-1">
+                <label className="block text-xs font-semibold text-ink-900 uppercase tracking-wide mb-0.5">
                   ENTITY TYPE
                 </label>
                 <input
@@ -216,9 +216,9 @@ export default function OnboardClient() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4 pt-2">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-ink-900 uppercase tracking-wide mb-1">
+                  <label className="block text-xs font-semibold text-ink-900 uppercase tracking-wide mb-0.5">
                     SIGNATORY NAME
                   </label>
                   <input
@@ -230,7 +230,7 @@ export default function OnboardClient() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-ink-900 uppercase tracking-wide mb-1">
+                  <label className="block text-xs font-semibold text-ink-900 uppercase tracking-wide mb-0.5">
                     SIGNATORY DESIGNATION
                   </label>
                   <input
@@ -244,7 +244,7 @@ export default function OnboardClient() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-ink-900 uppercase tracking-wide mb-1">
+                <label className="block text-xs font-semibold text-ink-900 uppercase tracking-wide mb-0.5">
                   SIGNATORY CONTACT
                 </label>
                 <input
@@ -258,22 +258,22 @@ export default function OnboardClient() {
             </div>
 
             {/* Right Column */}
-            <div className="space-y-5">
+            <div className="space-y-2">
               <div>
-                <label className="block text-xs font-semibold text-ink-900 uppercase tracking-wide mb-1">
+                <label className="block text-xs font-semibold text-ink-900 uppercase tracking-wide mb-0.5">
                   REGISTERED ADDRESS
                 </label>
                 <textarea
-                  className="input w-full min-h-[95px]"
+                  className="input w-full min-h-[52px]"
                   placeholder="Full address"
                   value={registeredAddress}
                   onChange={(e) => setRegisteredAddress(e.target.value)}
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-ink-900 uppercase tracking-wide mb-1">
+                  <label className="block text-xs font-semibold text-ink-900 uppercase tracking-wide mb-0.5">
                     STATE
                   </label>
                   <input
@@ -285,7 +285,7 @@ export default function OnboardClient() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-ink-900 uppercase tracking-wide mb-1">
+                  <label className="block text-xs font-semibold text-ink-900 uppercase tracking-wide mb-0.5">
                     PINCODE
                   </label>
                   <input
@@ -298,12 +298,12 @@ export default function OnboardClient() {
                 </div>
               </div>
 
-              <div className="pt-2">
-                <label className="block text-xs font-semibold text-ink-900 uppercase tracking-wide mb-1">
+              <div>
+                <label className="block text-xs font-semibold text-ink-900 uppercase tracking-wide mb-0.5">
                   NOTES
                 </label>
                 <textarea
-                  className="input w-full min-h-[120px]"
+                  className="input w-full min-h-[52px]"
                   placeholder="Additional notes about client..."
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
@@ -313,11 +313,11 @@ export default function OnboardClient() {
           </div>
 
           {/* Submit Action Button */}
-          <div className="flex justify-center pt-4">
+          <div className="flex justify-center pt-1">
             <button
               type="submit"
               disabled={loading}
-              className="w-full max-w-sm bg-amber-500 hover:bg-amber-600 text-ink-950 font-semibold py-3 px-6 rounded-md text-sm shadow transition-colors disabled:opacity-50"
+              className="w-full max-w-sm bg-amber-500 hover:bg-amber-600 text-ink-950 font-semibold py-2 px-6 rounded-md text-sm shadow transition-colors disabled:opacity-50"
             >
               {loading ? "Onboarding Client..." : "Onboard Client"}
             </button>
