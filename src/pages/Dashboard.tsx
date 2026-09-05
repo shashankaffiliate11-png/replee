@@ -42,7 +42,11 @@ export default function Dashboard() {
 
       // 2. Fetch ingested automated notices from the Express API
       try {
-        const response = await fetch('/api/notices');
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData.session?.access_token;
+        const response = await fetch('/api/notices', {
+          headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+        });
         const apiData = await response.json();
         if (apiData.success) {
           setAutomatedNotices(apiData.data);
