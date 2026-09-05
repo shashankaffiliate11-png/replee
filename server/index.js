@@ -9,6 +9,14 @@ app.use(express.json());
 // Initialize Gemini AI client
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
+const { createClient } = require('@supabase/supabase-js');
+
+// Initialize Supabase Client
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY // Use Service Role Key to bypass RLS policies on backend
+);
+
 // OAuth2 Client helper function
 function getGmailClient(userOAuthTokens) {
   const oauth2Client = new google.auth.OAuth2(
@@ -157,6 +165,92 @@ app.post('/webhooks/gmail', async (req, res) => {
     return res.status(500).json({ error: error.message });
   }
 });
+
+// ============================================================================
+// 3. FETCH ALL TAX NOTICES FOR DASHBOARD
+// ============================================================================
+app.get('/api/notices', async (req, res) => {
+  try {
+    const { status, limit = 20 } = req.query;
+
+    let query = supabase
+      .from('notices')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(parseInt(limit));
+
+    // Optional filter by status (e.g., PENDING_CA_REVIEW, COMPLETED)
+    if (status) {
+      query = query.eq('status', status);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      throw error;
+    }
+
+    return res.status(200).json({ success: true, count: data.length, data });
+  } catch (error) {
+    console.error('Error fetching notices:', error.message);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================================================
+// 4. FETCH A SINGLE NOTICE BY ID
+// ============================================================================
+app.get('/api/notices/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { data, error } = await supabase
+      .from('notices')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    console.error(`Error fetching notice ${req.params.id}:`, error.message);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================================================
+// 5. UPDATE NOTICE STATUS / EDITED REPLY
+// ============================================================================
+app.patch('/api/notices/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, drafted_reply } = req.body;
+
+    const updatePayload = {};
+    if (status) updatePayload.status = status;
+    if (drafted_reply) updatePayload.drafted_reply = drafted_reply;
+
+    const { data, error } = await supabase
+      .from('notices')
+      .update(updatePayload)
+      .eq('id', id)
+      .select();
+
+    if (error) {
+      throw error;
+    }
+
+    return res.status(200).json({ success: true, data: data[0] });
+  } catch (error) {
+    console.error(`Error updating notice ${req.params.id}:`, error.message);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+
 
 // Export Express app for Vercel Serverless environment
 module.exports = app;
