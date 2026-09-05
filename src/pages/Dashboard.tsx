@@ -11,6 +11,7 @@ export default function Dashboard() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [usage, setUsage] = useState<UsageCounter | null>(null);
   const [recent, setRecent] = useState<Notice[]>([]);
+  const [automatedNotices, setAutomatedNotices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -18,6 +19,7 @@ export default function Dashboard() {
     const periodMonth = `${new Date().toISOString().slice(0, 7)}-01`;
 
     async function load() {
+      // 1. Fetch Supabase profile, usage, and user notices
       const [{ data: profileData }, { data: usageData }, { data: notices }] = await Promise.all([
         supabase.from("profiles").select("*").eq("id", user!.id).maybeSingle(),
         supabase
@@ -33,11 +35,25 @@ export default function Dashboard() {
           .order("created_at", { ascending: false })
           .limit(5),
       ]);
+
       setProfile(profileData);
       setUsage(usageData ?? { user_id: user!.id, period_month: periodMonth, notices_used: 0 });
       setRecent(notices ?? []);
+
+      // 2. Fetch ingested automated notices from the Express API
+      try {
+        const response = await fetch('/api/notices');
+        const apiData = await response.json();
+        if (apiData.success) {
+          setAutomatedNotices(apiData.data);
+        }
+      } catch (error) {
+        console.error('Error fetching automated notices:', error);
+      }
+
       setLoading(false);
     }
+
     load();
   }, [user]);
 
@@ -105,10 +121,58 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Recent notices */}
+      {/* Real-time Ingested Tax Notices (Gmail & AI Webhook) */}
       <div className="mt-10">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-ink-950">Recent drafts</h2>
+          <h2 className="text-lg font-semibold text-ink-950">Ingested Tax Notices (Gmail)</h2>
+        </div>
+
+        {loading ? (
+          <p className="mt-4 text-sm text-ink-500">Loading automated notices…</p>
+        ) : automatedNotices.length === 0 ? (
+          <div className="mt-4 border border-dashed border-paper-line p-6 text-center">
+            <p className="text-sm text-ink-600">No automated notices detected yet.</p>
+          </div>
+        ) : (
+          <div className="mt-4 divide-y divide-paper-line border border-paper-line bg-white">
+            {automatedNotices.map((notice) => (
+              <div key={notice.id} className="p-5 hover:bg-paper-dim">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-ink-950">
+                      {notice.notice_type || "Tax Notice"} — {notice.tax_authority || "Department"}
+                    </p>
+                    <p className="text-xs text-ink-500">
+                      From: {notice.email_address} · Due Date: {notice.compliance_due_date || "N/A"}
+                    </p>
+                  </div>
+                  <span className="border border-brass/30 bg-brass/10 px-2 py-0.5 text-xs font-medium uppercase text-brass-dark">
+                    {notice.status}
+                  </span>
+                </div>
+                {notice.summary && (
+                  <p className="mt-2 text-xs text-ink-700 bg-paper-dim p-2.5 rounded">
+                    <strong>Summary:</strong> {notice.summary}
+                  </p>
+                )}
+                {notice.drafted_reply && (
+                  <div className="mt-3">
+                    <p className="text-xs font-medium text-ink-800">AI Drafted Reply:</p>
+                    <p className="mt-1 text-xs text-ink-600 line-clamp-3 whitespace-pre-wrap italic bg-gray-50 p-2.5 border border-paper-line">
+                      {notice.drafted_reply}
+                    </p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Manual Recent Drafts */}
+      <div className="mt-10">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-ink-950">Recent manual drafts</h2>
           <Link to="/app/history" className="text-sm text-ink-600 hover:text-ink-950">
             View all
           </Link>
