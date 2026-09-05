@@ -1,7 +1,7 @@
 import express from "express";
 import crypto from "crypto";
 import { google } from "googleapis";
-import pdfParse from "pdf-parse";
+import { PDFParse } from "pdf-parse";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { createClient } from "@supabase/supabase-js";
 
@@ -340,7 +340,9 @@ app.post("/webhooks/gmail", async (req, res) => {
           });
 
           const pdfBuffer = Buffer.from(attachment.data.data, "base64url");
-          const parsedPdf = await pdfParse(pdfBuffer);
+          const parser = new PDFParse({ data: pdfBuffer });
+          const parsedPdf = await parser.getText();
+          await parser.destroy();
           const noticeText = parsedPdf.text?.trim() || "(No extractable text in attached PDF)";
 
           const model = getGenAI().getGenerativeModel({ model: "gemini-2.5-flash" });
