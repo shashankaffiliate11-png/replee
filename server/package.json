@@ -17,4 +17,21 @@
   "engines": {
     "node": ">=18.0.0"
   }
+
+  
+}
+{
+  "name": "noticedesk-server",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "@supabase/supabase-js": "^2.45.4",
+    "express": "^5.2.1",
+    "googleapis": "^178.0.0",
+    "pdf-parse": "^2.4.5"
+  }
 }

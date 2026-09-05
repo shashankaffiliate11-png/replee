@@ -1,23 +1,22 @@
-const express = require('express');
-const { google } = require('googleapis');
-const pdfParse = require('pdf-parse');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+import express from 'express';
+import { google } from 'googleapis';
+import pdfParse from 'pdf-parse';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import { createClient } from '@supabase/supabase-js';
 
 const app = express();
 app.use(express.json());
 
 // Initialize Gemini AI client
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-
-const { createClient } = require('@supabase/supabase-js');
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
 // Initialize Supabase Client
 const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY // Use Service Role Key to bypass RLS policies on backend
+  process.env.SUPABASE_URL || '',
+  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
 );
 
-// OAuth2 Client helper function
+// Helper function to create OAuth2 Gmail Client
 function getGmailClient(userOAuthTokens) {
   const oauth2Client = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
@@ -72,7 +71,6 @@ app.post('/webhooks/gmail', async (req, res) => {
 
     console.log(`[Push Notification Received] Email: ${emailAddress}, History ID: ${historyId}`);
 
-    // Retrieve active OAuth tokens for this client (Inject/replace with DB lookup in production)
     const userOAuthTokens = req.body.userOAuthTokens || {
       access_token: process.env.TEMP_USER_ACCESS_TOKEN,
     };
@@ -84,7 +82,6 @@ app.post('/webhooks/gmail', async (req, res) => {
 
     const gmail = getGmailClient(userOAuthTokens);
 
-    // Fetch message list updated since this historyId
     const historyRes = await gmail.users.history.list({
       userId: 'me',
       startHistoryId: historyId,
@@ -101,10 +98,9 @@ app.post('/webhooks/gmail', async (req, res) => {
         });
 
         const headers = msg.data.payload.headers || [];
-        const fromHeader = headers.find(h => h.name.toLowerCase() === 'from')?.value || '';
-        const subjectHeader = headers.find(h => h.name.toLowerCase() === 'subject')?.value || '';
+        const fromHeader = headers.find((h) => h.name.toLowerCase() === 'from')?.value || '';
+        const subjectHeader = headers.find((h) => h.name.toLowerCase() === 'subject')?.value || '';
 
-        // TAX DEPARTMENT SENDER & SUBJECT FILTER
         const isTaxSender = /gst\.gov\.in|incometax\.gov\.in|tdscpc\.gov\.in/i.test(fromHeader);
         const isTaxSubject = /Notice|ASMT|DRC|142\(1\)|148|DIN|TRACES/i.test(subjectHeader);
 
@@ -116,18 +112,15 @@ app.post('/webhooks/gmail', async (req, res) => {
             if (part.filename && part.filename.toLowerCase().endsWith('.pdf')) {
               console.log(`[Processing PDF Attachment]: ${part.filename}`);
 
-              // Download raw PDF attachment bytes from Gmail API
               const attachment = await gmail.users.messages.attachments.get({
                 userId: 'me',
                 messageId: msg.data.id,
                 id: part.body.attachmentId,
               });
 
-              // Convert base64url string to Buffer and parse text
               const pdfBuffer = Buffer.from(attachment.data.data, 'base64url');
               const parsedPdf = await pdfParse(pdfBuffer);
 
-              // Analyze PDF text with Gemini AI
               const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
               const prompt = `
                 You are an expert Indian Chartered Accountant assistant.
@@ -149,10 +142,31 @@ app.post('/webhooks/gmail', async (req, res) => {
               `;
 
               const result = await model.generateContent(prompt);
-              console.log('[AI DRAFT & ANALYSIS GENERATED]:');
-              console.log(result.response.text());
+              const parsedJson = JSON.parse(result.response.text());
 
-              // TODO: Save noticeData & result to Database (e.g. MongoDB/PostgreSQL)
+              // Persist notice data into Supabase
+              const { error } = await supabase
+                .from('notices')
+                .upsert([
+                  {
+                    email_address: emailAddress,
+                    message_id: msg.data.id,
+                    notice_type: parsedJson.noticeType,
+                    tax_authority: parsedJson.taxAuthority,
+                    assessment_year: parsedJson.assessmentYear,
+                    din_number: parsedJson.dinNumber,
+                    compliance_due_date: parsedJson.complianceDueDate || null,
+                    summary: parsedJson.summaryOfDemandOrMismatch,
+                    drafted_reply: parsedJson.draftedReply,
+                    status: 'PENDING_CA_REVIEW',
+                  }
+                ], { onConflict: 'message_id' });
+
+              if (error) {
+                console.error('[Supabase Save Error]:', error.message);
+              } else {
+                console.log('[Notice Saved Successfully to Supabase]');
+              }
             }
           }
         }
@@ -179,16 +193,13 @@ app.get('/api/notices', async (req, res) => {
       .order('created_at', { ascending: false })
       .limit(parseInt(limit));
 
-    // Optional filter by status (e.g., PENDING_CA_REVIEW, COMPLETED)
     if (status) {
       query = query.eq('status', status);
     }
 
     const { data, error } = await query;
 
-    if (error) {
-      throw error;
-    }
+    if (error) throw error;
 
     return res.status(200).json({ success: true, count: data.length, data });
   } catch (error) {
@@ -197,63 +208,8 @@ app.get('/api/notices', async (req, res) => {
   }
 });
 
-// ============================================================================
-// 4. FETCH A SINGLE NOTICE BY ID
-// ============================================================================
-app.get('/api/notices/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const { data, error } = await supabase
-      .from('notices')
-      .select('*')
-      .eq('id', id)
-      .single();
-
-    if (error) {
-      throw error;
-    }
-
-    return res.status(200).json({ success: true, data });
-  } catch (error) {
-    console.error(`Error fetching notice ${req.params.id}:`, error.message);
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-// ============================================================================
-// 5. UPDATE NOTICE STATUS / EDITED REPLY
-// ============================================================================
-app.patch('/api/notices/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status, drafted_reply } = req.body;
-
-    const updatePayload = {};
-    if (status) updatePayload.status = status;
-    if (drafted_reply) updatePayload.drafted_reply = drafted_reply;
-
-    const { data, error } = await supabase
-      .from('notices')
-      .update(updatePayload)
-      .eq('id', id)
-      .select();
-
-    if (error) {
-      throw error;
-    }
-
-    return res.status(200).json({ success: true, data: data[0] });
-  } catch (error) {
-    console.error(`Error updating notice ${req.params.id}:`, error.message);
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-
-
-// Export Express app for Vercel Serverless environment
-module.exports = app;
+// Export Express app for Vercel Serverless environment using ESM syntax
+export default app;
 
 // Start local listener only when executing outside production
 if (process.env.NODE_ENV !== 'production') {
