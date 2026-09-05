@@ -45,7 +45,7 @@ export default function AppShell({ children }: AppShellProps) {
   const navItems = [
     { label: "Dashboard", path: "/app/dashboard" },
     { label: "Draft New Response", path: "/app/new" },
-    { label: "Onboard Client", path: "/app/clients" },
+    { label: "Onboard Client", path: "/app/onboard-client" },
     { label: "History", path: "/app/history" },
     { label: "Settings", path: "/app/settings" },
   ];
