@@ -1,5 +1,7 @@
 {
   "rewrites": [
+    { "source": "/webhooks/(.*)", "destination": "/api/index" },
+    { "source": "/api/(.*)", "destination": "/api/index" },
     { "source": "/((?!api/|webhooks/).*)", "destination": "/index.html" }
   ],
   "crons": [
