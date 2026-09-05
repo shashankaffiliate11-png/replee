@@ -92,9 +92,24 @@ export default function Dashboard() {
     if (!client) return;
 
     setAssigningId(noticeId);
+
+    // The Gmail webhook stores its AI draft in `drafted_reply` — copy it
+    // into ai_draft_response/final_response here too, since NoticeDetail.tsx
+    // (the actual review/edit screen) only ever reads those two columns.
+    // Without this, an assigned notice opens to a blank editor even though
+    // a real draft already exists on the row.
+    const sourceNotice = automatedNotices.find((n) => n.id === noticeId);
+    const draftedReply = (sourceNotice as any)?.drafted_reply ?? null;
+
     const { error } = await supabase
       .from("notices")
-      .update({ client_id: client.id, client_name: client.legal_name, status: "drafted" } as any)
+      .update({
+        client_id: client.id,
+        client_name: client.legal_name,
+        status: "drafted",
+        ai_draft_response: draftedReply,
+        final_response: draftedReply,
+      } as any)
       .eq("id", noticeId);
 
     if (error) {
@@ -109,7 +124,17 @@ export default function Dashboard() {
     setAutomatedNotices((prev) => prev.filter((n) => n.id !== noticeId));
     if (assigned) {
       setRecent((prev) =>
-        [{ ...assigned, client_id: client.id, client_name: client.legal_name, status: "drafted" }, ...prev].slice(0, 5)
+        [
+          {
+            ...assigned,
+            client_id: client.id,
+            client_name: client.legal_name,
+            status: "drafted",
+            ai_draft_response: draftedReply,
+            final_response: draftedReply,
+          },
+          ...prev,
+        ].slice(0, 5)
       );
     }
     setAssigningId(null);
