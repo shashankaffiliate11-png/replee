@@ -43,7 +43,7 @@ export default function AppShell({ children }: AppShellProps) {
   const limit = plan?.noticesPerMonth ?? 3;
 
   const navItems = [
-    { label: "Dashboard", path: "/app/dashboard" },
+    { label: "Dashboard", path: "/app" },
     { label: "Draft New Response", path: "/app/new" },
     { label: "Onboard Client", path: "/app/onboard-client" },
     { label: "History", path: "/app/history" },
@@ -56,7 +56,7 @@ export default function AppShell({ children }: AppShellProps) {
       <aside className="flex w-64 flex-col justify-between border-r border-paper-line bg-paper-dim p-6">
         <div>
           {/* Brand Logo */}
-          <Link to="/app/dashboard" className="flex items-center gap-2 text-xl font-bold text-black">
+          <Link to="/app" className="flex items-center gap-2 text-xl font-bold text-black">
             <span className="text-2xl">📄</span>
             <span>
               Notice<span className="text-brass">Desk</span>

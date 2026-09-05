@@ -24,6 +24,14 @@ export default function OnboardClient() {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  const fileToBase64 = (f: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(f);
+    });
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (!selectedFile) return;
@@ -31,14 +39,33 @@ export default function OnboardClient() {
     setFile(selectedFile);
     setParsing(true);
     setError(null);
+    setSuccessMessage(null);
 
     try {
-      // If parsing function exists, parse details here or pre-fill fields
-      // e.g., using Supabase storage or an Edge Function
-      setSuccessMessage("Document attached. Pre-filling details where available.");
+      const base64File = await fileToBase64(selectedFile);
+
+      const { data, error: fnError } = await supabase.functions.invoke("extract-client-docs", {
+        body: { base64File, mimeType: selectedFile.type },
+      });
+
+      if (fnError) throw fnError;
+      if (data?.error) throw new Error(data.error);
+
+      // Only fill fields the extractor actually found — never blank out
+      // something the CA may have already typed with a null.
+      if (data?.legal_name) setLegalName(data.legal_name);
+      if (data?.trade_name) setTradeName(data.trade_name);
+      if (data?.pan) setPan(data.pan);
+      if (data?.entity_type) setEntityType(data.entity_type);
+      if (data?.registered_address) setRegisteredAddress(data.registered_address);
+      if (data?.state) setState(data.state);
+      if (data?.pincode) setPincode(data.pincode);
+      if (data?.signatory_name) setSignatoryName(data.signatory_name);
+
+      setSuccessMessage("Document parsed. Fields have been pre-filled — please review before saving.");
     } catch (err: any) {
       console.error("Document parse error:", err);
-      setError("Failed to parse document. Please fill the details manually.");
+      setError(err.message || "Failed to parse document. Please fill the details manually.");
     } finally {
       setParsing(false);
     }
