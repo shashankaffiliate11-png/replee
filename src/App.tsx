@@ -13,6 +13,7 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import ProtectedRoute from "./components/ProtectedRoute";
 import OnboardClient from "./pages/OnboardClient";
+import NoticePreview from "./pages/NoticePreview";
 
 export default function App() {
   return (
@@ -63,6 +64,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <NoticeDetail />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/app/preview/:id"
+        element={
+          <ProtectedRoute>
+            <NoticePreview />
           </ProtectedRoute>
         }
       />

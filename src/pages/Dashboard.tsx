@@ -41,8 +41,6 @@ export default function Dashboard() {
 
       setProfile(profileData);
       setUsage(usageData ?? { user_id: user!.id, period_month: periodMonth, notices_used: 0 });
-      // Exclude un-triaged Gmail notices here — they live in the Inbox section
-      // below instead, so the same row never shows up in both lists at once.
       setRecent(
         (notices ?? [])
           .filter((n: any) => !(n.source === "gmail" && !n.client_id))
@@ -50,11 +48,11 @@ export default function Dashboard() {
       );
       setClients(clientRows ?? []);
 
-      // 2. Fetch ingested automated notices from the Express API
+      // 2. Fetch ingested automated notices from Express API
       try {
         const { data: sessionData } = await supabase.auth.getSession();
         const accessToken = sessionData.session?.access_token;
-        const response = await fetch('/api/notices', {
+        const response = await fetch("/api/notices", {
           headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
         });
         const apiData = await response.json();
@@ -62,7 +60,7 @@ export default function Dashboard() {
           setAutomatedNotices(apiData.data);
         }
       } catch (error) {
-        console.error('Error fetching automated notices:', error);
+        console.error("Error fetching automated notices:", error);
       }
 
       setLoading(false);
@@ -76,16 +74,8 @@ export default function Dashboard() {
   const limit = plan?.noticesPerMonth ?? 3;
   const limitReached = limit !== "unlimited" && used >= limit;
 
-  // Un-triaged inbox = Gmail-detected notices no one has assigned to a client yet.
+  // Un-triaged inbox = Gmail-detected notices no one has assigned to a client yet
   const inbox = automatedNotices.filter((n) => !n.client_id);
-
-  function urgencyClasses(dueDate?: string | null): string {
-    if (!dueDate) return "border-paper-line";
-    const daysLeft = (new Date(dueDate).getTime() - Date.now()) / 86_400_000;
-    if (daysLeft < 0) return "border-red-300 bg-red-50/50";
-    if (daysLeft <= 7) return "border-amber-300 bg-amber-50/50";
-    return "border-paper-line";
-  }
 
   async function assignClient(noticeId: string, clientId: string) {
     const client = clients.find((c) => c.id === clientId);
@@ -103,8 +93,6 @@ export default function Dashboard() {
       return;
     }
 
-    // Move it out of the Inbox and into Recent drafts, optimistically —
-    // no refetch needed, and it now behaves like any manually-created draft.
     const assigned = automatedNotices.find((n) => n.id === noticeId);
     setAutomatedNotices((prev) => prev.filter((n) => n.id !== noticeId));
     if (assigned) {
@@ -174,59 +162,83 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Inbox — Gmail-detected notices awaiting client assignment */}
+      {/* Structured Extracted Data Table Section */}
       <div className="mt-10">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-ink-950">
-            Inbox — Needs Review{inbox.length > 0 ? ` (${inbox.length})` : ""}
-          </h2>
-        </div>
+        <h2 className="text-lg font-semibold text-ink-950 mb-4">
+          Automated Email Extraction & Processing
+        </h2>
 
         {loading ? (
-          <p className="mt-4 text-sm text-ink-500">Checking for new notices…</p>
-        ) : inbox.length === 0 ? (
-          <div className="mt-4 border border-dashed border-paper-line p-6 text-center">
-            <p className="text-sm text-ink-600">Nothing waiting on you — new Gmail notices will show up here.</p>
+          <p className="text-sm text-ink-500">Loading extracted notices…</p>
+        ) : automatedNotices.length === 0 ? (
+          <div className="border border-dashed border-paper-line p-6 text-center bg-white">
+            <p className="text-sm text-ink-600">No automated notices ingested yet. Incoming Gmail notices will populate here.</p>
           </div>
         ) : (
-          <div className="mt-4 space-y-3">
+          <div className="overflow-x-auto border border-paper-line rounded-none bg-white">
+            <table className="w-full text-left text-sm text-ink-950 border-collapse">
+              <thead>
+                <tr className="bg-paper-dim border-b border-paper-line font-medium text-xs uppercase text-ink-700">
+                  <th className="p-3 border-r border-paper-line">Firm or Business Name</th>
+                  <th className="p-3 border-r border-paper-line">GST Number</th>
+                  <th className="p-3 border-r border-paper-line">PAN</th>
+                  <th className="p-3 border-r border-paper-line">Signature Authority Person Name</th>
+                  <th className="p-3 border-r border-paper-line">Notice Type</th>
+                  <th className="p-3 text-center">Preview Response</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-paper-line">
+                {automatedNotices.map((notice) => (
+                  <tr key={notice.id} className="hover:bg-yellow-50/50 transition-colors">
+                    <td className="p-3 border-r border-paper-line font-medium">
+                      {notice.firm_name || notice.client_name || "Unassigned"}
+                    </td>
+                    <td className="p-3 border-r border-paper-line font-mono text-xs">
+                      {notice.gst_number || notice.extracted_gstin || "—"}
+                    </td>
+                    <td className="p-3 border-r border-paper-line font-mono text-xs">
+                      {notice.pan_number || notice.extracted_pan || "—"}
+                    </td>
+                    <td className="p-3 border-r border-paper-line">
+                      {notice.signatory_name || "—"}
+                    </td>
+                    <td className="p-3 border-r border-paper-line">
+                      <span className="inline-block px-2 py-0.5 text-xs bg-brass/10 text-brass-dark border border-brass/20">
+                        {notice.notice_type || "Tax Notice"}
+                      </span>
+                    </td>
+                    <td className="p-3 text-center">
+                      <Link
+                        to={`/app/preview/${notice.id}`}
+                        className="inline-block bg-yellow-400 hover:bg-yellow-500 text-black font-semibold text-xs px-4 py-1.5 shadow-sm transition"
+                      >
+                        Preview
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Inbox — Gmail-detected notices awaiting client assignment */}
+      {inbox.length > 0 && (
+        <div className="mt-10">
+          <h2 className="text-lg font-semibold text-ink-950 mb-3">
+            Client Assignments Needed ({inbox.length})
+          </h2>
+          <div className="space-y-3">
             {inbox.map((notice) => (
-              <div
-                key={notice.id}
-                className={`border p-5 bg-white ${urgencyClasses(notice.compliance_due_date)}`}
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-ink-950">
-                      {notice.notice_type || "Tax Notice"} — {notice.tax_authority || "Department"}
-                    </p>
-                    <p className="mt-0.5 text-xs text-ink-500">
-                      From: {notice.email_address}
-                      {notice.compliance_due_date ? ` · Due: ${notice.compliance_due_date}` : ""}
-                    </p>
-                  </div>
-                  <span className="border border-brass/30 bg-brass/10 px-2 py-0.5 text-xs font-medium uppercase text-brass-dark whitespace-nowrap">
-                    Gmail
-                  </span>
+              <div key={notice.id} className="border border-paper-line p-4 bg-white flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-semibold text-ink-950">
+                    {notice.firm_name || notice.client_name} — {notice.notice_type}
+                  </p>
+                  <p className="text-xs text-ink-500">From: {notice.email_address}</p>
                 </div>
-
-                {notice.summary && (
-                  <p className="mt-2 text-xs text-ink-700 bg-paper-dim p-2.5 rounded">
-                    <strong>Summary:</strong> {notice.summary}
-                  </p>
-                )}
-
-                {(notice.extracted_gstin || notice.extracted_pan) && (
-                  <p className="mt-2 text-xs text-ink-500">
-                    Detected on notice: {notice.extracted_gstin ? `GSTIN ${notice.extracted_gstin}` : ""}
-                    {notice.extracted_gstin && notice.extracted_pan ? " · " : ""}
-                    {notice.extracted_pan ? `PAN ${notice.extracted_pan}` : ""}
-                    {" "}— no client on file matches this yet.
-                  </p>
-                )}
-
-                <div className="mt-3 flex items-center gap-2">
-                  <label className="text-xs font-medium text-ink-700">Assign to client:</label>
+                <div className="flex items-center gap-2">
                   <select
                     className="input text-xs py-1.5 max-w-xs"
                     disabled={assigningId === notice.id}
@@ -242,17 +254,12 @@ export default function Dashboard() {
                       </option>
                     ))}
                   </select>
-                  {clients.length === 0 && (
-                    <Link to="/app/onboard-client" className="text-xs text-brass-dark underline">
-                      Onboard a client first
-                    </Link>
-                  )}
                 </div>
               </div>
             ))}
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Manual Recent Drafts */}
       <div className="mt-10">
@@ -266,7 +273,7 @@ export default function Dashboard() {
         {loading ? (
           <p className="mt-4 text-sm text-ink-500">Loading…</p>
         ) : recent.length === 0 ? (
-          <div className="mt-4 border border-dashed border-paper-line p-8 text-center">
+          <div className="mt-4 border border-dashed border-paper-line p-8 text-center bg-white">
             <p className="text-sm text-ink-600">No drafts yet.</p>
             <Link to="/app/new" className="mt-2 inline-block text-sm text-brass-dark underline">
               Draft your first response

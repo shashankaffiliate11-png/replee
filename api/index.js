@@ -9,13 +9,6 @@ const app = express();
 app.use(express.json());
 
 // ── Clients ────────────────────────────────────────────────────────────
-// Lazily created on first use, not at module load. createClient() throws
-// immediately if its URL/key are missing or malformed — doing that at the
-// top of the file meant one missing Vercel env var crashed the ENTIRE
-// module, silently breaking every route in this file with an empty
-// response (exactly the "Unexpected end of JSON input" symptom). Building
-// each client inside a function means a misconfigured var now only fails
-// the one request that actually needed it, with a real error message.
 
 let _genAI = null;
 function getGenAI() {
@@ -61,11 +54,10 @@ function newOAuthClient() {
   return new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
-    process.env.GOOGLE_REDIRECT_URI // must exactly match a redirect URI registered in Google Cloud Console
+    process.env.GOOGLE_REDIRECT_URI
   );
 }
 
-// Verifies the caller's Supabase session from an Authorization: Bearer <jwt> header.
 async function requireUser(req, res) {
   const authHeader = req.headers.authorization;
   if (!authHeader) {
@@ -81,8 +73,6 @@ async function requireUser(req, res) {
   return data.user;
 }
 
-// Signed state param so the OAuth callback (a plain browser redirect, no
-// auth header available) can trust which user it belongs to.
 function signState(userId) {
   const payload = JSON.stringify({ userId, ts: Date.now() });
   const payloadB64 = Buffer.from(payload).toString("base64url");
@@ -96,22 +86,16 @@ function verifyState(state) {
   const expectedSig = crypto.createHmac("sha256", STATE_SECRET).update(payloadB64).digest("hex");
   if (sig !== expectedSig) return null;
   const payload = JSON.parse(Buffer.from(payloadB64, "base64url").toString("utf-8"));
-  // 10-minute expiry on the OAuth round trip
   if (Date.now() - payload.ts > 10 * 60 * 1000) return null;
   return payload.userId;
 }
 
-// Builds an authenticated Gmail client for a stored connection, using the
-// refresh token — googleapis auto-refreshes the access token as needed.
 function gmailClientForConnection(connection) {
   const oauth2Client = newOAuthClient();
   oauth2Client.setCredentials({ refresh_token: connection.refresh_token });
   return google.gmail({ version: "v1", auth: oauth2Client });
 }
 
-// Starts (or renews) a Gmail watch for one connected mailbox, and resets
-// last_history_id to the mailbox's current point — so we only ever process
-// mail that arrives after this call, never the entire mailbox history.
 async function registerWatchForConnection(connection) {
   const gmail = gmailClientForConnection(connection);
 
@@ -139,7 +123,7 @@ async function registerWatchForConnection(connection) {
 }
 
 // ============================================================================
-// 1. START GMAIL CONNECTION — returns the Google consent URL for the caller
+// 1. START GMAIL CONNECTION
 // ============================================================================
 app.post("/api/gmail/connect-url", async (req, res) => {
   const user = await requireUser(req, res);
@@ -147,8 +131,8 @@ app.post("/api/gmail/connect-url", async (req, res) => {
 
   const oauth2Client = newOAuthClient();
   const url = oauth2Client.generateAuthUrl({
-    access_type: "offline", // required to receive a refresh_token
-    prompt: "consent", // forces refresh_token on repeat connections too
+    access_type: "offline",
+    prompt: "consent",
     scope: ["https://www.googleapis.com/auth/gmail.readonly"],
     state: signState(user.id),
   });
@@ -157,7 +141,7 @@ app.post("/api/gmail/connect-url", async (req, res) => {
 });
 
 // ============================================================================
-// 2. OAUTH CALLBACK — Google redirects the browser here after consent
+// 2. OAUTH CALLBACK
 // ============================================================================
 app.get("/api/gmail/oauth-callback", async (req, res) => {
   try {
@@ -177,9 +161,6 @@ app.get("/api/gmail/oauth-callback", async (req, res) => {
     oauth2Client.setCredentials(tokens);
 
     if (!tokens.refresh_token) {
-      // Happens if the user previously connected and Google didn't re-issue
-      // a refresh_token. Since we pass prompt=consent this should be rare,
-      // but if it happens we can't proceed without one.
       return res.redirect(`${APP_URL}/app/settings?gmail=error&reason=no_refresh_token`);
     }
 
@@ -219,7 +200,7 @@ app.get("/api/gmail/oauth-callback", async (req, res) => {
 });
 
 // ============================================================================
-// 3. MANUAL RESYNC — lets a signed-in user re-trigger their own watch
+// 3. MANUAL RESYNC
 // ============================================================================
 app.post("/api/gmail/resync", async (req, res) => {
   const user = await requireUser(req, res);
@@ -245,11 +226,9 @@ app.post("/api/gmail/resync", async (req, res) => {
 });
 
 // ============================================================================
-// 4. RENEW ALL WATCHES — called daily by Vercel Cron (watches expire in 7 days)
+// 4. RENEW ALL WATCHES
 // ============================================================================
 app.get("/api/gmail/renew-watches", async (req, res) => {
-  // Vercel Cron automatically sends this header when CRON_SECRET is set as
-  // a project environment variable — see Vercel's Cron Jobs documentation.
   const authHeader = req.headers.authorization;
   if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return res.status(401).json({ error: "Unauthorized" });
@@ -275,7 +254,7 @@ app.get("/api/gmail/renew-watches", async (req, res) => {
 });
 
 // ============================================================================
-// 5. GMAIL PUB/SUB PUSH WEBHOOK — Google calls this on every new message
+// 5. GMAIL PUB/SUB PUSH WEBHOOK
 // ============================================================================
 app.post("/webhooks/gmail", async (req, res) => {
   try {
@@ -301,9 +280,6 @@ app.post("/webhooks/gmail", async (req, res) => {
     }
 
     const gmail = gmailClientForConnection(connection);
-
-    // Always resume from our own last-processed point, never trust the
-    // pushed historyId alone — Pub/Sub can coalesce or reorder notifications.
     const startHistoryId = connection.last_history_id || pushedHistoryId;
 
     const historyRes = await gmail.users.history.list({
@@ -343,19 +319,21 @@ app.post("/webhooks/gmail", async (req, res) => {
           const parsedPdf = await pdfParse(pdfBuffer);
           const noticeText = parsedPdf.text?.trim() || "(No extractable text in attached PDF)";
 
-          const model = getGenAI().getGenerativeModel({ model: "gemini-2.5-flash" });
+          const model = getGenAI().getGenerativeModel({ model: "gemini-1.5-flash" });
           const prompt = `You are an expert Indian Chartered Accountant assistant.
 Analyze the following official tax notice text and extract details as strict JSON, no markdown wrapping:
 {
-  "noticeType": "Section 142(1) / ASMT-10 / DRC-01 / etc.",
+  "firmName": "Firm or Business Name of taxpayer, if present, else null",
+  "gstin": "The taxpayer's 15-character GSTIN printed on the notice, if present, else null",
+  "pan": "The taxpayer's 10-character PAN printed on the notice, if present, else null",
+  "signatoryName": "Name of Signing Authority, Assessing Officer, or Authorized Person, if present, else null",
+  "noticeType": "Section 142(1) / ASMT-10 / DRC-01 / Section 148 / etc.",
   "taxAuthority": "Income Tax / GST / TRACES",
   "assessmentYear": "e.g., 2024-25",
   "dinNumber": "Document Identification Number if present, else null",
   "complianceDueDate": "YYYY-MM-DD or null",
-  "gstin": "The taxpayer's 15-character GSTIN printed on the notice, if present, else null",
-  "pan": "The taxpayer's 10-character PAN printed on the notice, if present, else null",
   "summaryOfDemandOrMismatch": "Brief explanation of what the department is asking",
-  "draftedReply": "Formal, professional reply draft addressing the tax officer"
+  "draftedReply": "Formal, professional, legally sound reply draft addressing the tax officer"
 }
 
 Notice Text:
@@ -369,19 +347,16 @@ Notice Text:
           } catch (aiErr) {
             console.error("[Gemini parse error]:", aiErr.message);
             parsedJson = {
+              firmName: null,
+              gstin: null,
+              pan: null,
+              signatoryName: null,
               noticeType: "Unclassified",
               summaryOfDemandOrMismatch: "Automatic parsing failed — please review the attached PDF manually.",
               draftedReply: null,
-              gstin: null,
-              pan: null,
             };
           }
 
-          // ── Auto-match against this CA's own client base ──────────────
-          // Official GST/IT notices print the taxpayer's GSTIN and/or PAN
-          // directly on the document. Match against records this CA
-          // already entered via Onboard Client, scoped to their own firm_id
-          // only — never matches another firm's clients.
           let matchedClientId = null;
           let matchedClientName = null;
 
@@ -416,14 +391,6 @@ Notice Text:
             }
           }
 
-          if (matchedClientId) {
-            console.log(`[Auto-Matched] ${matchedClientName} (GSTIN/PAN match)`);
-          } else {
-            console.log(`[No Match] GSTIN=${extractedGstin || "none"} PAN=${extractedPan || "none"} — needs manual assignment`);
-          }
-
-          // Upload the original PDF to the same private bucket manual
-          // uploads use, under this user's own folder.
           const storagePath = `${connection.user_id}/gmail-${msg.data.id}-${part.filename}`;
           const { error: uploadError } = await getSupabaseAdmin().storage
             .from("notice-uploads")
@@ -436,17 +403,17 @@ Notice Text:
           const { error: dbError } = await getSupabaseAdmin().from("notices").upsert(
             {
               user_id: connection.user_id,
-              client_id: matchedClientId, // null when no GSTIN/PAN match found — falls back to manual assignment in the Inbox
-              client_name: matchedClientId ? matchedClientName : `Unassigned — ${fromHeader || "via Gmail"}`,
+              client_id: matchedClientId,
+              client_name: matchedClientId ? matchedClientName : (parsedJson.firmName || `Unassigned — ${fromHeader || "via Gmail"}`),
+              firm_name: parsedJson.firmName || matchedClientName || null,
+              gst_number: extractedGstin,
+              pan_number: extractedPan,
+              signatory_name: parsedJson.signatoryName || null,
               notice_type: parsedJson.noticeType || "Unclassified",
               original_notice_text: noticeText,
-              // Written to BOTH columns: drafted_reply (Dashboard's own preview)
-              // and ai_draft_response (the field NoticeDetail.tsx's existing
-              // review/edit/finalize screen actually reads) — this is what
-              // makes the manual-track editor work for Gmail-sourced notices
-              // too, without changing anything in the manual track itself.
               drafted_reply: parsedJson.draftedReply || null,
               ai_draft_response: parsedJson.draftedReply || null,
+              generated_response: parsedJson.draftedReply || null,
               email_address: emailAddress,
               message_id: msg.data.id,
               tax_authority: parsedJson.taxAuthority || null,
@@ -457,10 +424,6 @@ Notice Text:
               extracted_gstin: extractedGstin,
               extracted_pan: extractedPan,
               notice_file_path: uploadError ? null : storagePath,
-              // Auto-matched notices go straight to "drafted" — same status
-              // a manually-created draft starts at, so it behaves identically
-              // in every other screen. Unmatched ones stay pending_ca_review
-              // until a human picks the client from the Inbox.
               status: matchedClientId ? "drafted" : "pending_ca_review",
               source: "gmail",
             },
@@ -476,7 +439,6 @@ Notice Text:
       }
     }
 
-    // Advance our checkpoint so the next push only looks at what's new.
     await getSupabaseAdmin()
       .from("gmail_connections")
       .update({ last_history_id: pushedHistoryId, updated_at: new Date().toISOString() })
@@ -485,20 +447,13 @@ Notice Text:
     return res.status(200).send("EVENT_RECEIVED");
   } catch (err) {
     console.error("[Webhook Processing Error]:", err.message);
-    // Always 200 back to Pub/Sub for errors we can't recover from by
-    // retrying — otherwise Pub/Sub will redeliver the same push forever.
     return res.status(200).send("Error logged");
   }
 });
 
 // ============================================================================
-// 6. FETCH NOTICES FOR DASHBOARD (used by both manual and Gmail-sourced rows)
+// 6. FETCH NOTICES FOR DASHBOARD
 // ============================================================================
-// SECURITY FIX: this previously had no auth check and returned every user's
-// notices to any caller. Now requires a valid session and always scopes to
-// that user's own rows — the same guarantee Supabase RLS gives direct
-// table access, since this endpoint uses the service-role key and must
-// enforce that scoping itself.
 app.get("/api/notices", async (req, res) => {
   const user = await requireUser(req, res);
   if (!user) return;
@@ -526,10 +481,7 @@ app.get("/api/notices", async (req, res) => {
 });
 
 // ============================================================================
-// GLOBAL ERROR HANDLER — must be the last app.use(). Catches anything that
-// slips past a route's own try/catch (including the lazy client getters
-// above throwing when an env var is missing) and guarantees the browser
-// always receives real JSON, never an empty/crashed response.
+// GLOBAL ERROR HANDLER
 // ============================================================================
 app.use((err, req, res, next) => {
   console.error("[Unhandled Error]", err.message);

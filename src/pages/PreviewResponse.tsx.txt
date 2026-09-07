@@ -1,0 +1,60 @@
+import { useEffect, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { supabase } from "../lib/supabaseClient";
+
+export default function PreviewResponse() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [notice, setNotice] = useState<any>(null);
+  const [responseDraft, setResponseDraft] = useState("");
+
+  useEffect(() => {
+    async function loadNotice() {
+      const { data } = await supabase.from("notices").select("*").eq("id", id).single();
+      if (data) {
+        setNotice(data);
+        setResponseDraft(data.generated_response || "");
+      }
+    }
+    loadNotice();
+  }, [id]);
+
+  const handleFinalise = async () => {
+    await supabase.from("notices").update({
+      generated_response: responseDraft,
+      status: "finalised"
+    }).eq("id", id);
+
+    alert("Response Finalised Successfully!");
+    navigate("/app/dashboard");
+  };
+
+  if (!notice) return <div className="p-8 text-black">Loading draft response...</div>;
+
+  return (
+    <div className="max-w-4xl mx-auto p-8 bg-white border border-gray-300 rounded-md mt-6 text-black">
+      <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-200">
+        <div>
+          <h1 className="text-xl font-bold">{notice.firm_name}</h1>
+          <p className="text-sm text-gray-600">
+            GST: {notice.gst_number} | PAN: {notice.pan_number} | Notice: {notice.notice_type}
+          </p>
+        </div>
+        <button
+          onClick={handleFinalise}
+          className="bg-black hover:bg-gray-800 text-yellow-400 font-bold px-6 py-2.5 rounded shadow transition"
+        >
+          FINALISE
+        </button>
+      </div>
+
+      <label className="block text-sm font-semibold mb-2">Generated Draft Response:</label>
+      <textarea
+        value={responseDraft}
+        onChange={(e) => setResponseDraft(e.target.value)}
+        rows={18}
+        className="w-full p-4 border border-gray-300 rounded font-mono text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-yellow-400"
+      />
+    </div>
+  );
+}
