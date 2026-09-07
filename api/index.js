@@ -109,57 +109,6 @@ function gmailClientForConnection(connection) {
   return google.gmail({ version: "v1", auth: oauth2Client });
 }
 
-// ── PAN / GSTIN auto-match ──────────────────────────────────────────────
-// Indian tax notices print the taxpayer's PAN (Income Tax notices) and/or
-// GSTIN (GST notices) directly in the document text. A GSTIN embeds the
-// taxpayer's PAN at characters 3–12, e.g. GSTIN "27ABCDE1234F1Z5" contains
-// PAN "ABCDE1234F" — so extracting both formats and matching either against
-// a CA's own clients.pan lets a notice self-identify its client, with the
-// existing manual "Assign to client" dropdown as the fallback when no PAN
-// is found or no client matches.
-const PAN_REGEX = /\b[A-Z]{5}[0-9]{4}[A-Z]\b/g;
-const GSTIN_REGEX = /\b\d{2}[A-Z]{5}\d{4}[A-Z]\d[A-Z0-9]Z[A-Z0-9]\b/g;
-
-function extractCandidatePans(noticeText) {
-  const text = (noticeText || "").toUpperCase();
-  const candidates = new Set();
-
-  for (const match of text.match(PAN_REGEX) || []) {
-    candidates.add(match);
-  }
-  for (const match of text.match(GSTIN_REGEX) || []) {
-    candidates.add(match.slice(2, 12)); // the PAN embedded inside the GSTIN
-  }
-
-  return Array.from(candidates);
-}
-
-// Fetches a CA's own client list and finds the first one whose PAN matches
-// any PAN/GSTIN-derived candidate found in the notice text. Comparison is
-// normalized (trimmed, uppercased) since manual entry via Onboard Client
-// can't be relied on to be perfectly clean.
-async function matchClientByPan(firmId, noticeText) {
-  const candidates = extractCandidatePans(noticeText);
-  if (candidates.length === 0) return null;
-
-  const { data: clients, error } = await getSupabaseAdmin()
-    .from("clients")
-    .select("id, legal_name, pan")
-    .eq("firm_id", firmId);
-
-  if (error || !clients) return null;
-
-  for (const client of clients) {
-    if (!client.pan) continue;
-    const normalizedClientPan = client.pan.trim().toUpperCase();
-    if (candidates.includes(normalizedClientPan)) {
-      return { id: client.id, legal_name: client.legal_name };
-    }
-  }
-
-  return null;
-}
-
 // Starts (or renews) a Gmail watch for one connected mailbox, and resets
 // last_history_id to the mailbox's current point — so we only ever process
 // mail that arrives after this call, never the entire mailbox history.
@@ -403,6 +352,8 @@ Analyze the following official tax notice text and extract details as strict JSO
   "assessmentYear": "e.g., 2024-25",
   "dinNumber": "Document Identification Number if present, else null",
   "complianceDueDate": "YYYY-MM-DD or null",
+  "gstin": "The taxpayer's 15-character GSTIN printed on the notice, if present, else null",
+  "pan": "The taxpayer's 10-character PAN printed on the notice, if present, else null",
   "summaryOfDemandOrMismatch": "Brief explanation of what the department is asking",
   "draftedReply": "Formal, professional reply draft addressing the tax officer"
 }
@@ -421,7 +372,54 @@ Notice Text:
               noticeType: "Unclassified",
               summaryOfDemandOrMismatch: "Automatic parsing failed — please review the attached PDF manually.",
               draftedReply: null,
+              gstin: null,
+              pan: null,
             };
+          }
+
+          // ── Auto-match against this CA's own client base ──────────────
+          // Official GST/IT notices print the taxpayer's GSTIN and/or PAN
+          // directly on the document. Match against records this CA
+          // already entered via Onboard Client, scoped to their own firm_id
+          // only — never matches another firm's clients.
+          let matchedClientId = null;
+          let matchedClientName = null;
+
+          const extractedGstin = parsedJson.gstin ? String(parsedJson.gstin).trim().toUpperCase() : null;
+          const extractedPan = parsedJson.pan ? String(parsedJson.pan).trim().toUpperCase() : null;
+
+          if (extractedGstin) {
+            const { data: gstinMatch } = await getSupabaseAdmin()
+              .from("client_gstins")
+              .select("client_id, clients!inner(id, legal_name, firm_id)")
+              .eq("gstin", extractedGstin)
+              .eq("clients.firm_id", connection.user_id)
+              .maybeSingle();
+
+            if (gstinMatch?.clients) {
+              matchedClientId = gstinMatch.clients.id;
+              matchedClientName = gstinMatch.clients.legal_name;
+            }
+          }
+
+          if (!matchedClientId && extractedPan) {
+            const { data: panMatch } = await getSupabaseAdmin()
+              .from("clients")
+              .select("id, legal_name")
+              .eq("pan", extractedPan)
+              .eq("firm_id", connection.user_id)
+              .maybeSingle();
+
+            if (panMatch) {
+              matchedClientId = panMatch.id;
+              matchedClientName = panMatch.legal_name;
+            }
+          }
+
+          if (matchedClientId) {
+            console.log(`[Auto-Matched] ${matchedClientName} (GSTIN/PAN match)`);
+          } else {
+            console.log(`[No Match] GSTIN=${extractedGstin || "none"} PAN=${extractedPan || "none"} — needs manual assignment`);
           }
 
           // Upload the original PDF to the same private bucket manual
@@ -435,26 +433,20 @@ Notice Text:
             console.error("[Storage Upload Error]:", uploadError.message);
           }
 
-          // Try to auto-identify the client from a PAN/GSTIN printed in the
-          // notice itself before falling back to "Unassigned" — see
-          // matchClientByPan above.
-          const matchedClient = await matchClientByPan(connection.user_id, noticeText);
-
           const { error: dbError } = await getSupabaseAdmin().from("notices").upsert(
             {
               user_id: connection.user_id,
-              client_id: matchedClient?.id ?? null,
-              client_name: matchedClient?.legal_name ?? `Unassigned — ${fromHeader || "via Gmail"}`,
+              client_id: matchedClientId, // null when no GSTIN/PAN match found — falls back to manual assignment in the Inbox
+              client_name: matchedClientId ? matchedClientName : `Unassigned — ${fromHeader || "via Gmail"}`,
               notice_type: parsedJson.noticeType || "Unclassified",
               original_notice_text: noticeText,
-              // Auto-matched notices go straight into the same reviewable
-              // state a manually-assigned one ends up in — ai_draft_response
-              // and final_response are what NoticeDetail.tsx actually reads,
-              // so the draft must land there now, not just in drafted_reply,
-              // or the CA opens the notice to an empty editor.
+              // Written to BOTH columns: drafted_reply (Dashboard's own preview)
+              // and ai_draft_response (the field NoticeDetail.tsx's existing
+              // review/edit/finalize screen actually reads) — this is what
+              // makes the manual-track editor work for Gmail-sourced notices
+              // too, without changing anything in the manual track itself.
               drafted_reply: parsedJson.draftedReply || null,
-              ai_draft_response: matchedClient ? parsedJson.draftedReply || null : null,
-              final_response: matchedClient ? parsedJson.draftedReply || null : null,
+              ai_draft_response: parsedJson.draftedReply || null,
               email_address: emailAddress,
               message_id: msg.data.id,
               tax_authority: parsedJson.taxAuthority || null,
@@ -462,8 +454,14 @@ Notice Text:
               din_number: parsedJson.dinNumber || null,
               compliance_due_date: parsedJson.complianceDueDate || null,
               summary: parsedJson.summaryOfDemandOrMismatch || null,
+              extracted_gstin: extractedGstin,
+              extracted_pan: extractedPan,
               notice_file_path: uploadError ? null : storagePath,
-              status: matchedClient ? "drafted" : "pending_ca_review",
+              // Auto-matched notices go straight to "drafted" — same status
+              // a manually-created draft starts at, so it behaves identically
+              // in every other screen. Unmatched ones stay pending_ca_review
+              // until a human picks the client from the Inbox.
+              status: matchedClientId ? "drafted" : "pending_ca_review",
               source: "gmail",
             },
             { onConflict: "message_id" }

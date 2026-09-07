@@ -4,7 +4,6 @@ import AppShell from "../components/AppShell";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../lib/supabaseClient";
 import { getPlan } from "../lib/plans";
-import ClientSearch, { type ClientRecord } from "../components/ClientSearch";
 import type { Notice, Profile, UsageCounter } from "../lib/database.types";
 
 export default function Dashboard() {
@@ -13,10 +12,9 @@ export default function Dashboard() {
   const [usage, setUsage] = useState<UsageCounter | null>(null);
   const [recent, setRecent] = useState<Notice[]>([]);
   const [automatedNotices, setAutomatedNotices] = useState<any[]>([]);
-  const [clients, setClients] = useState<{ id: string; legal_name: string; pan: string | null }[]>([]);
+  const [clients, setClients] = useState<{ id: string; legal_name: string }[]>([]);
   const [assigningId, setAssigningId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [lookupResult, setLookupResult] = useState<ClientRecord | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -38,7 +36,7 @@ export default function Dashboard() {
           .eq("user_id", user!.id)
           .order("created_at", { ascending: false })
           .limit(10),
-        supabase.from("clients").select("id, legal_name, pan").eq("firm_id", user!.id).order("legal_name"),
+        supabase.from("clients").select("id, legal_name").eq("firm_id", user!.id).order("legal_name"),
       ]);
 
       setProfile(profileData);
@@ -81,12 +79,6 @@ export default function Dashboard() {
   // Un-triaged inbox = Gmail-detected notices no one has assigned to a client yet.
   const inbox = automatedNotices.filter((n) => !n.client_id);
 
-  // client_id -> pan, so a row can show the PAN next to the client name
-  // without a second round trip — only populated for notices that carry a
-  // client_id (currently: Gmail-sourced notices, auto-matched or manually
-  // assigned; manual drafts from New Draft don't link a client_id today).
-  const panByClientId = new Map(clients.filter((c) => c.pan).map((c) => [c.id, c.pan]));
-
   function urgencyClasses(dueDate?: string | null): string {
     if (!dueDate) return "border-paper-line";
     const daysLeft = (new Date(dueDate).getTime() - Date.now()) / 86_400_000;
@@ -95,26 +87,14 @@ export default function Dashboard() {
     return "border-paper-line";
   }
 
-  async function assignClient(noticeId: string, client: { id: string; legal_name: string }) {
+  async function assignClient(noticeId: string, clientId: string) {
+    const client = clients.find((c) => c.id === clientId);
+    if (!client) return;
+
     setAssigningId(noticeId);
-
-    // The Gmail webhook stores its AI draft in `drafted_reply` — copy it
-    // into ai_draft_response/final_response here too, since NoticeDetail.tsx
-    // (the actual review/edit screen) only ever reads those two columns.
-    // Without this, an assigned notice opens to a blank editor even though
-    // a real draft already exists on the row.
-    const sourceNotice = automatedNotices.find((n) => n.id === noticeId);
-    const draftedReply = (sourceNotice as any)?.drafted_reply ?? null;
-
     const { error } = await supabase
       .from("notices")
-      .update({
-        client_id: client.id,
-        client_name: client.legal_name,
-        status: "drafted",
-        ai_draft_response: draftedReply,
-        final_response: draftedReply,
-      } as any)
+      .update({ client_id: client.id, client_name: client.legal_name, status: "drafted" } as any)
       .eq("id", noticeId);
 
     if (error) {
@@ -129,17 +109,7 @@ export default function Dashboard() {
     setAutomatedNotices((prev) => prev.filter((n) => n.id !== noticeId));
     if (assigned) {
       setRecent((prev) =>
-        [
-          {
-            ...assigned,
-            client_id: client.id,
-            client_name: client.legal_name,
-            status: "drafted",
-            ai_draft_response: draftedReply,
-            final_response: draftedReply,
-          },
-          ...prev,
-        ].slice(0, 5)
+        [{ ...assigned, client_id: client.id, client_name: client.legal_name, status: "drafted" }, ...prev].slice(0, 5)
       );
     }
     setAssigningId(null);
@@ -204,81 +174,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Find a client — search across every field on record and view full details */}
-      <div className="mt-10">
-        <h2 className="text-lg font-semibold text-ink-950">Find a client</h2>
-        <p className="mt-1 text-sm text-ink-600">
-          Search by name, PAN, address, state, pincode, or signatory contact.
-        </p>
-        <div className="mt-3 max-w-md">
-          <ClientSearch firmId={user!.id} onSelect={(client) => setLookupResult(client)} />
-        </div>
-
-        {lookupResult && (
-          <div className="mt-4 max-w-md border border-paper-line bg-white p-5">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold text-ink-950">{lookupResult.legal_name}</p>
-                {lookupResult.trade_name && (
-                  <p className="text-xs text-ink-500">Trade name: {lookupResult.trade_name}</p>
-                )}
-              </div>
-              <button
-                onClick={() => setLookupResult(null)}
-                className="text-xs text-ink-400 hover:text-ink-700"
-              >
-                Clear
-              </button>
-            </div>
-            <dl className="mt-3 space-y-1.5 text-xs text-ink-700">
-              {lookupResult.pan && (
-                <div className="flex gap-2">
-                  <dt className="font-medium text-ink-950">PAN:</dt>
-                  <dd>{lookupResult.pan}</dd>
-                </div>
-              )}
-              {lookupResult.entity_type && (
-                <div className="flex gap-2">
-                  <dt className="font-medium text-ink-950">Entity type:</dt>
-                  <dd>{lookupResult.entity_type}</dd>
-                </div>
-              )}
-              {lookupResult.registered_address && (
-                <div className="flex gap-2">
-                  <dt className="font-medium text-ink-950">Address:</dt>
-                  <dd>
-                    {lookupResult.registered_address}
-                    {lookupResult.state ? `, ${lookupResult.state}` : ""}
-                    {lookupResult.pincode ? ` – ${lookupResult.pincode}` : ""}
-                  </dd>
-                </div>
-              )}
-              {lookupResult.signatory_name && (
-                <div className="flex gap-2">
-                  <dt className="font-medium text-ink-950">Signatory:</dt>
-                  <dd>
-                    {lookupResult.signatory_name}
-                    {lookupResult.signatory_designation ? ` (${lookupResult.signatory_designation})` : ""}
-                  </dd>
-                </div>
-              )}
-              {lookupResult.signatory_contact && (
-                <div className="flex gap-2">
-                  <dt className="font-medium text-ink-950">Contact:</dt>
-                  <dd>{lookupResult.signatory_contact}</dd>
-                </div>
-              )}
-              {lookupResult.notes && (
-                <div className="flex gap-2">
-                  <dt className="font-medium text-ink-950">Notes:</dt>
-                  <dd>{lookupResult.notes}</dd>
-                </div>
-              )}
-            </dl>
-          </div>
-        )}
-      </div>
-
       {/* Inbox — Gmail-detected notices awaiting client assignment */}
       <div className="mt-10">
         <div className="flex items-center justify-between">
@@ -321,17 +216,34 @@ export default function Dashboard() {
                   </p>
                 )}
 
-                <div className="mt-3">
+                {(notice.extracted_gstin || notice.extracted_pan) && (
+                  <p className="mt-2 text-xs text-ink-500">
+                    Detected on notice: {notice.extracted_gstin ? `GSTIN ${notice.extracted_gstin}` : ""}
+                    {notice.extracted_gstin && notice.extracted_pan ? " · " : ""}
+                    {notice.extracted_pan ? `PAN ${notice.extracted_pan}` : ""}
+                    {" "}— no client on file matches this yet.
+                  </p>
+                )}
+
+                <div className="mt-3 flex items-center gap-2">
                   <label className="text-xs font-medium text-ink-700">Assign to client:</label>
-                  <div className="mt-1 max-w-xs">
-                    <ClientSearch
-                      firmId={user!.id}
-                      placeholder={assigningId === notice.id ? "Assigning…" : "Search by name, PAN, address, phone…"}
-                      onSelect={(client) => assignClient(notice.id, client)}
-                    />
-                  </div>
+                  <select
+                    className="input text-xs py-1.5 max-w-xs"
+                    disabled={assigningId === notice.id}
+                    defaultValue=""
+                    onChange={(e) => e.target.value && assignClient(notice.id, e.target.value)}
+                  >
+                    <option value="" disabled>
+                      {assigningId === notice.id ? "Assigning…" : "Select a client…"}
+                    </option>
+                    {clients.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.legal_name}
+                      </option>
+                    ))}
+                  </select>
                   {clients.length === 0 && (
-                    <Link to="/app/onboard-client" className="mt-1 inline-block text-xs text-brass-dark underline">
+                    <Link to="/app/onboard-client" className="text-xs text-brass-dark underline">
                       Onboard a client first
                     </Link>
                   )}
@@ -369,14 +281,7 @@ export default function Dashboard() {
                 className="flex items-center justify-between px-5 py-4 hover:bg-paper-dim"
               >
                 <div>
-                  <p className="text-sm font-medium text-ink-950">
-                    {notice.client_name}
-                    {(notice as any).client_id && panByClientId.get((notice as any).client_id) && (
-                      <span className="ml-2 text-xs font-normal text-ink-500">
-                        PAN: {panByClientId.get((notice as any).client_id)}
-                      </span>
-                    )}
-                  </p>
+                  <p className="text-sm font-medium text-ink-950">{notice.client_name}</p>
                   <p className="text-xs text-ink-500">
                     {notice.notice_type}
                     {notice.notice_reference_no ? ` · ${notice.notice_reference_no}` : ""}
