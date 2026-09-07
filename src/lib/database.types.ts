@@ -20,6 +20,10 @@ export type Notice = {
   id: string;
   user_id: string;
   client_name: string;
+  firm_name?: string | null;
+  gst_number?: string | null;
+  pan_number?: string | null;
+  signatory_name?: string | null;
   notice_type: string;
   notice_reference_no: string | null;
   notice_section: string | null;
@@ -28,6 +32,7 @@ export type Notice = {
   ai_draft_response: string | null;
   final_response: string | null;
   status: NoticeStatus;
+  source?: string | null; // Added to handle 'gmail' vs 'manual' filtering
   created_at: string;
   updated_at: string;
 };
