@@ -12,6 +12,11 @@ export default function Dashboard() {
   const [usage, setUsage] = useState<UsageCounter | null>(null);
   const [manualDrafts, setManualDrafts] = useState<Notice[]>([]);
   const [automatedNotices, setAutomatedNotices] = useState<any[]>([]);
+  
+  // Restored Client Search State
+  const [searchQuery, setSearchQuery] = useState("");
+  const [clients, setClients] = useState<any[]>([]);
+  
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -20,8 +25,8 @@ export default function Dashboard() {
 
     async function load() {
       try {
-        // 1. Fetch Supabase profile, usage, and strictly MANUAL drafts
-        const [{ data: profileData }, { data: usageData }, { data: manualRows }] = await Promise.all([
+        // 1. Fetch Profile, Usage, Clients, and MANUAL Drafts
+        const [{ data: profileData }, { data: usageData }, { data: manualRows }, { data: clientRows }] = await Promise.all([
           supabase.from("profiles").select("*").eq("id", user!.id).maybeSingle(),
           supabase
             .from("usage_counters")
@@ -33,16 +38,18 @@ export default function Dashboard() {
             .from("notices")
             .select("*")
             .eq("user_id", user!.id)
-            .neq("source", "gmail") // Exclude email-ingested notices entirely from manual section
+            .neq("source", "gmail") // Strictly manual history
             .order("created_at", { ascending: false })
             .limit(5),
+          supabase.from("clients").select("*").eq("firm_id", user!.id).order("legal_name"),
         ]);
 
         setProfile(profileData);
         setUsage(usageData ?? { user_id: user!.id, period_month: periodMonth, notices_used: 0 });
         setManualDrafts(manualRows ?? []);
+        setClients(clientRows ?? []);
 
-        // 2. Fetch ingested email notices exclusively from Express API / Gmail Pipeline
+        // 2. Fetch Automated Ingested Email Notices Exclusively
         const { data: sessionData } = await supabase.auth.getSession();
         const accessToken = sessionData.session?.access_token;
         const response = await fetch("/api/notices?source=gmail", {
@@ -70,6 +77,13 @@ export default function Dashboard() {
   const limit = plan?.noticesPerMonth ?? 3;
   const limitReached = limit !== "unlimited" && used >= limit;
 
+  // Filtered client search results
+  const filteredClients = clients.filter((c) =>
+    c.legal_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    c.pan?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    c.gstin?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <AppShell>
       {/* Header */}
@@ -92,9 +106,36 @@ export default function Dashboard() {
         </Link>
       </div>
 
-      {/* Usage card */}
+      {/* RESTORED: Search Client Feature */}
+      <div className="mt-6">
+        <div className="relative max-w-md">
+          <input
+            type="text"
+            placeholder="Search client by name, GSTIN, or PAN..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full border border-paper-line bg-white px-4 py-2 text-sm text-ink-950 placeholder-ink-400 focus:border-brass focus:outline-none"
+          />
+        </div>
+        {searchQuery && (
+          <div className="mt-2 max-w-md border border-paper-line bg-white p-2 shadow-sm">
+            {filteredClients.length === 0 ? (
+              <p className="p-2 text-xs text-ink-500">No matching clients found.</p>
+            ) : (
+              filteredClients.map((client) => (
+                <div key={client.id} className="p-2 hover:bg-paper-dim border-b border-paper-line last:border-0">
+                  <p className="text-xs font-semibold text-ink-950">{client.legal_name}</p>
+                  <p className="text-[10px] text-ink-500">GSTIN: {client.gstin || "N/A"} | PAN: {client.pan || "N/A"}</p>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Usage Card */}
       {!loading && plan && (
-        <div className="mt-8 border border-paper-line bg-white p-5">
+        <div className="mt-6 border border-paper-line bg-white p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
               <span className="border border-brass/40 bg-brass/10 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-brass-dark">
@@ -110,23 +151,6 @@ export default function Dashboard() {
               </Link>
             )}
           </div>
-          {limit !== "unlimited" && (
-            <div className="mt-3 h-1.5 w-full bg-paper-dim">
-              <div
-                className="h-1.5 bg-brass"
-                style={{ width: `${Math.min(100, (used / limit) * 100)}%` }}
-              />
-            </div>
-          )}
-          {limitReached && (
-            <p className="mt-3 text-sm text-warn">
-              You've used all drafts on your plan this month.{" "}
-              <Link to="/pricing" className="underline">
-                Upgrade to keep drafting
-              </Link>
-              .
-            </p>
-          )}
         </div>
       )}
 
@@ -164,7 +188,7 @@ export default function Dashboard() {
                 {automatedNotices.map((notice) => (
                   <tr key={notice.id} className="hover:bg-yellow-50/50 transition-colors">
                     <td className="p-3 border-r border-paper-line font-medium">
-                      {notice.firm_name || notice.client_name || notice.extracted_business_name || "—"}
+                      {notice.firm_name || notice.client_name || "—"}
                     </td>
                     <td className="p-3 border-r border-paper-line font-mono text-xs">
                       {notice.gst_number || notice.extracted_gstin || "—"}
@@ -173,7 +197,7 @@ export default function Dashboard() {
                       {notice.pan_number || notice.extracted_pan || "—"}
                     </td>
                     <td className="p-3 border-r border-paper-line">
-                      {notice.signatory_name || notice.extracted_signatory || "—"}
+                      {notice.signatory_name || "—"}
                     </td>
                     <td className="p-3 border-r border-paper-line">
                       <span className="inline-block px-2 py-0.5 text-xs bg-brass/10 text-brass-dark border border-brass/20">
@@ -196,7 +220,7 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* SECTION 2: Recent Manual Drafts */}
+      {/* SECTION 2: Recent Manual Drafts (UNTOUCHED / SEPARATE) */}
       <div className="mt-10">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-ink-950">Recent manual drafts</h2>
