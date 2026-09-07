@@ -319,7 +319,14 @@ app.post("/webhooks/gmail", async (req, res) => {
           const parsedPdf = await pdfParse(pdfBuffer);
           const noticeText = parsedPdf.text?.trim() || "(No extractable text in attached PDF)";
 
-          const model = getGenAI().getGenerativeModel({ model: "gemini-1.5-flash" });
+          // gemini-1.5-flash was retired and now returns a 404 on every
+          // call — this line has been silently failing every extraction
+          // attempt (caught below and falling back to a generic
+          // "Unclassified" result with no PAN/GSTIN, which is why nothing
+          // useful — sometimes nothing at all — has been showing up).
+          // Note: gemini-2.5-flash itself is scheduled to retire no earlier
+          // than Oct 16, 2026 — worth revisiting this line again before then.
+          const model = getGenAI().getGenerativeModel({ model: "gemini-2.5-flash" });
           const prompt = `You are an expert Indian Chartered Accountant assistant.
 Analyze the following official tax notice text and extract details as strict JSON, no markdown wrapping:
 {
@@ -459,7 +466,7 @@ app.get("/api/notices", async (req, res) => {
   if (!user) return;
 
   try {
-    const { status, limit = 20 } = req.query;
+    const { status, source, limit = 20 } = req.query;
 
     let query = getSupabaseAdmin()
       .from("notices")
@@ -469,6 +476,11 @@ app.get("/api/notices", async (req, res) => {
       .limit(parseInt(limit));
 
     if (status) query = query.eq("status", status);
+    // This was being silently ignored before — the frontend has been
+    // asking for ?source=gmail all along, but every notice (manual and
+    // Gmail-sourced alike) was returned regardless, which is why manual
+    // drafts were showing up in the "Automated Email Extraction" table.
+    if (source) query = query.eq("source", source);
 
     const { data, error } = await query;
     if (error) throw error;
