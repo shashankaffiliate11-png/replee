@@ -170,7 +170,7 @@ app.get("/api/gmail/oauth-callback", async (req, res) => {
     const { error: upsertError } = await getSupabaseAdmin().from("gmail_connections").upsert(
       {
         user_id: userId,
-        connected_email: profile.data.emailAddress,
+        connected_email: profile.data.emailAddress.toLowerCase(),
         refresh_token: tokens.refresh_token,
         access_token: tokens.access_token,
         token_expiry: tokens.expiry_date ? new Date(tokens.expiry_date).toISOString() : null,
@@ -268,10 +268,14 @@ app.post("/webhooks/gmail", async (req, res) => {
 
     console.log(`[Push Notification] ${emailAddress} — historyId ${pushedHistoryId}`);
 
+    // Case-insensitive match, with % and _ escaped so they're treated as
+    // literal characters rather than LIKE wildcards.
+    const escapedEmail = emailAddress.replace(/[%_\\]/g, (c) => `\\${c}`);
+
     const { data: connection, error: connError } = await getSupabaseAdmin()
       .from("gmail_connections")
       .select("*")
-      .eq("connected_email", emailAddress)
+      .ilike("connected_email", escapedEmail)
       .maybeSingle();
 
     if (connError || !connection) {
@@ -319,14 +323,13 @@ app.post("/webhooks/gmail", async (req, res) => {
           const parsedPdf = await pdfParse(pdfBuffer);
           const noticeText = parsedPdf.text?.trim() || "(No extractable text in attached PDF)";
 
-          // gemini-1.5-flash was retired and now returns a 404 on every
-          // call — this line has been silently failing every extraction
-          // attempt (caught below and falling back to a generic
-          // "Unclassified" result with no PAN/GSTIN, which is why nothing
-          // useful — sometimes nothing at all — has been showing up).
-          // Note: gemini-2.5-flash itself is scheduled to retire no earlier
-          // than Oct 16, 2026 — worth revisiting this line again before then.
-          const model = getGenAI().getGenerativeModel({ model: "gemini-2.5-flash" });
+          // Using the 'gemini-flash-latest' alias instead of a dated model
+          // ID — Google maintains this to always point at their current
+          // recommended flash model and re-points it automatically as
+          // specific model IDs retire, avoiding this exact class of failure
+          // (gemini-1.5-flash already retired; gemini-2.5-flash is next,
+          // no earlier than Oct 16, 2026).
+          const model = getGenAI().getGenerativeModel({ model: "gemini-flash-latest" });
           const prompt = `You are an expert Indian Chartered Accountant assistant.
 Analyze the following official tax notice text and extract details as strict JSON, no markdown wrapping:
 {
