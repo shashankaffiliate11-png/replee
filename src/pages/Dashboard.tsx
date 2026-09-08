@@ -229,27 +229,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Usage Card */}
-      {!loading && plan && (
-        <div className="mt-6 border border-paper-line bg-white p-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <span className="border border-brass/40 bg-brass/10 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-brass-dark">
-                {plan.name}
-              </span>
-              <span className="text-sm text-ink-600">
-                {used} of {limit === "unlimited" ? "unlimited" : limit} drafts used this month
-              </span>
-            </div>
-            {plan.code !== "professional" && (
-              <Link to="/pricing" className="text-sm font-medium text-brass-dark hover:text-brass-light">
-                Upgrade plan →
-              </Link>
-            )}
-          </div>
-        </div>
-      )}
-
       {/* SECTION 1: Automated Email Extraction & Processing */}
       <div className="mt-10">
         <h2 className="text-lg font-semibold text-ink-950 mb-4">
@@ -302,7 +281,7 @@ export default function Dashboard() {
                     </td>
                     <td className="p-3 text-center">
                       <Link
-                        to={`/app/notices/${notice.id}`}
+                        to={`/app/preview/${notice.id}`}
                         className="inline-block bg-yellow-400 hover:bg-yellow-500 text-black font-semibold text-xs px-4 py-1.5 shadow-sm transition"
                       >
                         Preview
