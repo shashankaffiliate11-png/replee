@@ -302,7 +302,7 @@ export default function Dashboard() {
                     </td>
                     <td className="p-3 text-center">
                       <Link
-                        to={`/app/preview/${notice.id}`}
+                        to={`/app/notices/${notice.id}`}
                         className="inline-block bg-yellow-400 hover:bg-yellow-500 text-black font-semibold text-xs px-4 py-1.5 shadow-sm transition"
                       >
                         Preview
