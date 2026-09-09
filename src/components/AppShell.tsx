@@ -6,7 +6,6 @@ import {
   UserPlus,
   History as HistoryIcon,
   Settings as SettingsIcon,
-  Search,
   Bell,
   Rocket,
   ChevronDown,
@@ -138,8 +137,11 @@ export default function AppShell({ children }: AppShellProps) {
             <p className="mt-1 font-medium text-ink-800">
               {used} of {limit === "unlimited" ? "unlimited" : limit} drafts used this month
             </p>
-            <Link to="/pricing" className="mt-1.5 inline-block font-semibold text-brass-dark hover:underline">
-              Manage Plan →
+            <Link
+              to="/pricing"
+              className="mt-2 block rounded-lg bg-brass py-2 text-center text-xs font-semibold text-white hover:bg-brass-dark"
+            >
+              Upgrade Plan
             </Link>
           </div>
 
@@ -162,15 +164,6 @@ export default function AppShell({ children }: AppShellProps) {
       <div className="flex flex-1 flex-col">
         {/* Shared top header */}
         <header className="flex items-center gap-4 border-b border-paper-line bg-white px-8 py-3">
-          <div className="relative flex-1 max-w-xl">
-            <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-400" />
-            <input
-              type="text"
-              placeholder="Search by Legal Name, GSTIN, or PAN..."
-              className="w-full rounded-lg border border-paper-line bg-paper-dim py-2 pl-9 pr-3 text-sm text-ink-800 placeholder:text-ink-400 focus:outline-none focus:ring-2 focus:ring-brass/40"
-            />
-          </div>
-
           <div className="ml-auto flex items-center gap-4">
             <button className="relative text-ink-500 hover:text-ink-800" aria-label="Notifications">
               <Bell size={19} />
