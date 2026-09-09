@@ -7,7 +7,6 @@ import {
   History as HistoryIcon,
   Settings as SettingsIcon,
   Bell,
-  Rocket,
   ChevronDown,
   LogOut,
   Headset,
@@ -114,26 +113,6 @@ export default function AppShell({ children }: AppShellProps) {
               );
             })}
           </nav>
-
-          {/* Promo card — only shown to non-Professional plans, since an
-              "upgrade to Pro" pitch is irrelevant once already on it, and
-              hiding it for Pro users keeps the sidebar from needing to
-              scroll on shorter screens. */}
-          {plan?.code !== "professional" && (
-            <div className="mt-6 rounded-xl border border-brass/30 bg-brass-tint p-3.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brass text-white">
-                <Rocket size={17} />
-              </div>
-              <p className="mt-2.5 text-sm font-semibold text-ink-950">Save Time. Stay Compliant.</p>
-              <p className="mt-1 text-xs text-ink-600">AI-powered drafts for GST &amp; Income Tax notices.</p>
-              <Link
-                to="/pricing"
-                className="mt-2.5 block rounded-lg bg-brass py-2 text-center text-xs font-semibold text-white hover:bg-brass-dark"
-              >
-                Upgrade to Pro →
-              </Link>
-            </div>
-          )}
         </div>
 
         {/* Footer — pinned, always visible, never scrolls out of view */}
@@ -142,14 +121,12 @@ export default function AppShell({ children }: AppShellProps) {
             <p className="text-ink-700">
               You're on the <strong className="font-semibold text-ink-950">{plan?.name || "Professional"}</strong> plan.
             </p>
-            {plan?.code !== "professional" && (
-              <Link
-                to="/pricing"
-                className="mt-2 block rounded-lg bg-brass py-2 text-center text-xs font-semibold text-white hover:bg-brass-dark"
-              >
-                Upgrade Plan
-              </Link>
-            )}
+            <Link
+              to="/pricing"
+              className="mt-2 block rounded-lg bg-brass py-2 text-center text-xs font-semibold text-white hover:bg-brass-dark"
+            >
+              Upgrade Plan
+            </Link>
           </div>
 
           <div className="text-xs">

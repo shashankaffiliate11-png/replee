@@ -36,8 +36,6 @@ export default function Dashboard() {
   // Search & Selected Client State
   const [searchQuery, setSearchQuery] = useState("");
   const [clients, setClients] = useState<any[]>([]);
-  const [selectedClient, setSelectedClient] = useState<any | null>(null);
-  const [clientNotices, setClientNotices] = useState<Notice[]>([]);
 
   const [loading, setLoading] = useState(true);
 
@@ -92,18 +90,8 @@ export default function Dashboard() {
     load();
   }, [user]);
 
-  const handleSelectClient = async (client: any) => {
-    setSelectedClient(client);
-    setSearchQuery("");
-
-    const { data: notices } = await supabase
-      .from("notices")
-      .select("*")
-      .eq("user_id", user!.id)
-      .ilike("client_name", `%${client.legal_name}%`)
-      .order("created_at", { ascending: false });
-
-    setClientNotices(notices || []);
+  const handleSelectClient = (client: any) => {
+    navigate(`/app/clients/${client.id}`);
   };
 
   const plan = profile ? getPlan(profile.plan) : null;
@@ -196,72 +184,6 @@ export default function Dashboard() {
                       </button>
                     ))
                   )}
-                </div>
-              )}
-
-              {selectedClient && (
-                <div className="mt-4 rounded-xl border border-brass/30 bg-brass-tint p-5 relative">
-                  <button
-                    onClick={() => setSelectedClient(null)}
-                    className="absolute top-3 right-3 text-xs text-ink-400 hover:text-ink-950 font-bold"
-                  >
-                    ✕ Close
-                  </button>
-
-                  <div className="flex justify-between items-start pr-16">
-                    <div>
-                      <span className="text-[10px] font-semibold uppercase tracking-wide text-brass-dark bg-white/70 rounded px-2 py-0.5">
-                        Client Profile
-                      </span>
-                      <h2 className="text-lg font-semibold text-ink-950 mt-1">{selectedClient.legal_name}</h2>
-                    </div>
-                    <button
-                      onClick={() => navigate(`/app/clients/${selectedClient.id}`)}
-                      className="text-xs font-medium text-brass-dark underline hover:text-brass-light"
-                    >
-                      Full profile →
-                    </button>
-                  </div>
-
-                  <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4 border-t border-brass/20 pt-4 text-xs">
-                    <div>
-                      <p className="text-ink-500">GSTIN</p>
-                      <p className="font-mono font-medium text-ink-950">{selectedClient.gstin || "Not Registered"}</p>
-                    </div>
-                    <div>
-                      <p className="text-ink-500">PAN</p>
-                      <p className="font-mono font-medium text-ink-950">{selectedClient.pan || "N/A"}</p>
-                    </div>
-                    <div>
-                      <p className="text-ink-500">Authorized Signatory</p>
-                      <p className="font-medium text-ink-950">{selectedClient.signatory_name || "N/A"}</p>
-                    </div>
-                    <div>
-                      <p className="text-ink-500">Email Address</p>
-                      <p className="font-medium text-ink-950">{selectedClient.email || "N/A"}</p>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 border-t border-brass/20 pt-3">
-                    <p className="text-xs font-semibold text-ink-950 mb-2">Notices for {selectedClient.legal_name}:</p>
-                    {clientNotices.length === 0 ? (
-                      <p className="text-xs text-ink-500">No notice records found for this client.</p>
-                    ) : (
-                      <ul className="space-y-1.5">
-                        {clientNotices.map((n) => (
-                          <li key={n.id} className="flex justify-between items-center bg-white rounded p-2 border border-paper-line text-xs">
-                            <div>
-                              <span className="font-medium text-ink-950">{n.notice_type}</span>
-                              <span className="text-ink-500 ml-2">({n.notice_reference_no || "No Ref"})</span>
-                            </div>
-                            <Link to={`/app/notices/${n.id}`} className="text-brass-dark underline font-medium">
-                              View
-                            </Link>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
                 </div>
               )}
             </div>

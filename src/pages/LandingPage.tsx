@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { Zap, ShieldCheck, Clock, Lock } from "lucide-react";
+import { Zap, ShieldCheck, Clock, Lock, Rocket } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { PLANS, PLAN_CARD_THEME } from "../lib/plans";
 import AuthModal from "../components/AuthModal";
@@ -151,6 +151,24 @@ export default function LandingPage() {
               </div>
             );
           })}
+        </div>
+      </section>
+
+      {/* Save Time. Stay Compliant. — moved here from the app sidebar */}
+      <section className="border-b border-paper-line bg-brass-tint">
+        <div className="mx-auto flex max-w-6xl flex-col items-start gap-4 px-6 py-12 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-4">
+            <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg bg-brass text-white">
+              <Rocket size={20} />
+            </div>
+            <div>
+              <p className="text-lg font-semibold text-ink-950">Save Time. Stay Compliant.</p>
+              <p className="text-sm text-ink-600">AI-powered drafts for GST &amp; Income Tax notices.</p>
+            </div>
+          </div>
+          <button onClick={handlePrimaryCta} className="btn-primary whitespace-nowrap">
+            Draft your first response free
+          </button>
         </div>
       </section>
 
