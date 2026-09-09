@@ -73,8 +73,11 @@ export default function AppShell({ children }: AppShellProps) {
   return (
     <div className="flex min-h-screen bg-paper-cream">
       {/* Sidebar */}
-      <aside className="flex w-64 flex-shrink-0 flex-col justify-between border-r border-paper-line bg-white px-5 py-6">
-        <div>
+      <aside className="flex h-screen w-64 flex-shrink-0 flex-col border-r border-paper-line bg-white">
+        {/* Scrolls independently if nav/promo content is ever taller than
+            the viewport — the footer below never gets pushed off-screen
+            because of this split. */}
+        <div className="flex-1 overflow-y-auto px-5 py-6">
           {/* Brand */}
           <Link to="/app" className="flex items-center gap-2.5 px-1">
             <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brass text-white">
@@ -128,8 +131,8 @@ export default function AppShell({ children }: AppShellProps) {
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="space-y-4 border-t border-paper-line pt-4">
+        {/* Footer — pinned, always visible, never scrolls out of view */}
+        <div className="shrink-0 space-y-4 border-t border-paper-line px-5 py-4">
           <div className="rounded-lg bg-paper-dim p-3 text-xs">
             <p className="text-ink-700">
               You're on the <strong className="font-semibold text-ink-950">{plan?.name || "Professional"}</strong> plan.
@@ -164,6 +167,15 @@ export default function AppShell({ children }: AppShellProps) {
       <div className="flex flex-1 flex-col">
         {/* Shared top header */}
         <header className="flex items-center gap-4 border-b border-paper-line bg-white px-8 py-3">
+          {location.pathname === "/app" && (
+            <div>
+              <h1 className="text-base font-semibold text-ink-950">
+                Welcome back, {profile?.full_name ? profile.full_name.split(" ")[0] : "there"} 👋
+              </h1>
+              <p className="text-xs text-ink-500">Here's what's happening with your NoticeDesk today.</p>
+            </div>
+          )}
+
           <div className="ml-auto flex items-center gap-4">
             <button className="relative text-ink-500 hover:text-ink-800" aria-label="Notifications">
               <Bell size={19} />

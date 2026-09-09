@@ -176,15 +176,6 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-6">
         {/* MAIN COLUMN */}
         <div>
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-semibold text-ink-950">
-                Welcome back, {profile?.full_name ? profile.full_name.split(" ")[0] : "there"} 👋
-              </h1>
-              <p className="mt-1 text-sm text-ink-600">Here's what's happening with your NoticeDesk today.</p>
-            </div>
-          </div>
-
           <div className="mt-5 grid grid-cols-1 gap-4">
             <div className="relative">
               <div className="flex gap-2">

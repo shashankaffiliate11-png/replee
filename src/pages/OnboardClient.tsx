@@ -131,7 +131,7 @@ export default function OnboardClient() {
 
   return (
     <AppShell>
-      <div className="max-w-4xl mx-auto py-1">
+      <div className="max-w-6xl mx-auto py-1">
         {/* Page Header */}
         <div className="mb-2">
           <h1 className="text-xl font-semibold text-ink-950 mb-0.5">Onboard Client</h1>
@@ -155,13 +155,13 @@ export default function OnboardClient() {
         <form onSubmit={handleSubmit} className="space-y-2">
           {/* Document Upload Area */}
           <div className="flex justify-center">
-            <div className="w-full max-w-md bg-white border border-paper-line rounded-lg p-3 text-center shadow-sm">
+            <div className="w-full max-w-md bg-white border border-paper-line rounded-lg p-2.5 text-center shadow-sm">
               <label className="block text-xs font-semibold text-ink-900 uppercase tracking-wide mb-0.5">
                 Upload Document
               </label>
-              <p className="text-xs text-ink-500 mb-1.5">Supported formats: PDF, PNG, JPG (up to 10MB)</p>
+              <p className="text-xs text-ink-500 mb-1">Supported formats: PDF, PNG, JPG (up to 10MB)</p>
 
-              <div className="bg-paper-dim border border-dashed border-paper-line rounded-md p-2 flex flex-col items-center justify-center">
+              <div className="bg-paper-dim border border-dashed border-paper-line rounded-md p-1.5 flex flex-col items-center justify-center">
                 <input
                   type="file"
                   id="client-doc-upload"
@@ -186,7 +186,7 @@ export default function OnboardClient() {
           </div>
 
           {/* Form Fields - 2 Column Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 bg-white p-4 border border-paper-line rounded-lg shadow-sm">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-1.5 bg-white p-3 border border-paper-line rounded-lg shadow-sm">
             {/* Left Column */}
             <div className="space-y-2">
               <div>
