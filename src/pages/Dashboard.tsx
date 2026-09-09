@@ -185,7 +185,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="mt-5 grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-4">
+          <div className="mt-5 grid grid-cols-1 gap-4">
             <div className="relative">
               <div className="flex gap-2">
                 <input
@@ -285,28 +285,6 @@ export default function Dashboard() {
                   </div>
                 </div>
               )}
-            </div>
-
-            <div className="rounded-xl bg-gradient-to-br from-brass-tint to-white border border-brass/20 p-5 flex flex-col justify-between">
-              <div className="flex items-start gap-3">
-                <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg bg-brass text-white">
-                  <Sparkles size={20} />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-ink-950 leading-snug">
-                    Turn Notices into Winning Responses
-                  </p>
-                  <p className="mt-1 text-xs text-ink-600">Draft, Review, and File — Faster with AI.</p>
-                </div>
-              </div>
-              <Link
-                to="/app/new"
-                className={`mt-4 inline-flex items-center justify-center gap-1.5 rounded-lg bg-brass px-4 py-2 text-xs font-semibold text-white hover:bg-brass-dark ${
-                  limitReached ? "pointer-events-none opacity-40" : ""
-                }`}
-              >
-                + Draft New Response
-              </Link>
             </div>
           </div>
 
