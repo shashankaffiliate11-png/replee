@@ -20,8 +20,8 @@ export default {
           cream: "#FFF9F0",
         },
         brass: {
-          DEFAULT: "#F5A623",
-          light: "#FBBF24",
+          DEFAULT: "#FFC700",
+          light: "#FFD740",
           dark: "#D97706",
           tint: "#FEF3E2",
         },
