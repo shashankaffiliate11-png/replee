@@ -17,11 +17,18 @@ export default {
           DEFAULT: "#FFFFFF",
           dim: "#F5F5F4",
           line: "#E5E5E5",
+          cream: "#FFF9F0",
         },
         brass: {
           DEFAULT: "#F5A623",
           light: "#FBBF24",
           dark: "#D97706",
+          tint: "#FEF3E2",
+        },
+        accent: {
+          blue: { DEFAULT: "#3B82F6", tint: "#EFF6FF" },
+          green: { DEFAULT: "#16A34A", tint: "#F0FDF4" },
+          purple: { DEFAULT: "#8B5CF6", tint: "#F5F3FF" },
         },
         ok: "#16A34A",
         warn: "#DC2626",
