@@ -3,7 +3,6 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   ShieldCheck,
   Clock,
-  Headset,
   Users,
   FileText,
   Eye,
@@ -11,7 +10,6 @@ import {
   Sparkles,
 } from "lucide-react";
 import AppShell from "../components/AppShell";
-import ContactSupportModal from "../components/ContactSupportModal";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../lib/supabaseClient";
 import { getPlan } from "../lib/plans";
@@ -42,7 +40,6 @@ export default function Dashboard() {
   const [clientNotices, setClientNotices] = useState<Notice[]>([]);
 
   const [loading, setLoading] = useState(true);
-  const [supportOpen, setSupportOpen] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -164,7 +161,7 @@ export default function Dashboard() {
 
   return (
     <AppShell>
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-6">
+      <div>
         {/* MAIN COLUMN */}
         <div>
           <div className="mt-5 grid grid-cols-1 gap-4">
@@ -373,32 +370,7 @@ export default function Dashboard() {
           </div>
 
         </div>
-
-        {/* RIGHT PANEL */}
-        <div className="space-y-5">
-          <div className="rounded-xl border border-paper-line bg-accent-green-tint p-5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent-green text-white">
-              <Headset size={17} />
-            </div>
-            <p className="mt-3 text-sm font-semibold text-ink-950">Need Help?</p>
-            <p className="mt-1 text-xs text-ink-600">Our team is here to assist you.</p>
-            <button
-              onClick={() => setSupportOpen(true)}
-              className="mt-3 inline-block rounded-lg bg-white border border-paper-line px-4 py-2 text-xs font-semibold text-ink-800 hover:bg-paper-dim"
-            >
-              Contact Support
-            </button>
-          </div>
-        </div>
       </div>
-
-      <ContactSupportModal
-        open={supportOpen}
-        onClose={() => setSupportOpen(false)}
-        defaultName={profile?.full_name ?? ""}
-        defaultEmail={user?.email ?? ""}
-        defaultMobile={(profile as any)?.phone ?? ""}
-      />
     </AppShell>
   );
 }

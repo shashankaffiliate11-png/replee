@@ -12,6 +12,7 @@ import {
   LogOut,
   Headset,
 } from "lucide-react";
+import ContactSupportModal from "./ContactSupportModal";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../lib/supabaseClient";
 import { getPlan } from "../lib/plans";
@@ -28,6 +29,7 @@ export default function AppShell({ children }: AppShellProps) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [usage, setUsage] = useState<UsageCounter | null>(null);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [supportOpen, setSupportOpen] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -179,6 +181,15 @@ export default function AppShell({ children }: AppShellProps) {
           )}
 
           <div className="ml-auto flex items-center gap-4">
+            <button
+              onClick={() => setSupportOpen(true)}
+              className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-green text-white hover:bg-accent-green/90"
+              aria-label="Contact Support"
+              title="Contact Support"
+            >
+              <Headset size={16} />
+            </button>
+
             <button className="relative text-ink-500 hover:text-ink-800" aria-label="Notifications">
               <Bell size={19} />
               <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-warn text-[10px] font-semibold text-white">
@@ -226,6 +237,14 @@ export default function AppShell({ children }: AppShellProps) {
 
         <main className="flex-1 p-8">{children}</main>
       </div>
+
+      <ContactSupportModal
+        open={supportOpen}
+        onClose={() => setSupportOpen(false)}
+        defaultName={profile?.full_name ?? ""}
+        defaultEmail={user?.email ?? ""}
+        defaultMobile={(profile as any)?.phone ?? ""}
+      />
     </div>
   );
 }
