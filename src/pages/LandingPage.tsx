@@ -1,5 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
+import { Zap, ShieldCheck, Clock, Lock } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { PLANS, PLAN_CARD_THEME } from "../lib/plans";
 import AuthModal from "../components/AuthModal";
@@ -70,6 +71,32 @@ export default function LandingPage() {
               title="Review, edit, finalise"
               body="Every draft is exactly that — a draft. Edit it in the app, export to Word, and it's yours to sign off on and file."
             />
+          </div>
+        </div>
+      </section>
+
+      {/* Why professionals choose NoticeDesk */}
+      <section className="border-b border-paper-line">
+        <div className="mx-auto max-w-6xl px-6 py-16 md:py-20">
+          <h2 className="text-2xl font-semibold text-ink-950 md:text-3xl">Why professionals choose NoticeDesk</h2>
+          <div className="mt-10 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              { icon: Zap, title: "AI-Powered Drafts", desc: "Get a structured first draft in minutes, ready for your review." },
+              { icon: ShieldCheck, title: "Built on GST & Income Tax Rules", desc: "Response structure follows current notice formats." },
+              { icon: Clock, title: "Save Time", desc: "Automate data extraction and document preparation." },
+              { icon: Lock, title: "Secure & Reliable", desc: "Your data is always protected." },
+            ].map((b) => {
+              const Icon = b.icon;
+              return (
+                <div key={b.title} className="flex flex-col items-start gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brass-tint text-brass-dark">
+                    <Icon size={18} />
+                  </div>
+                  <p className="text-sm font-semibold text-ink-950">{b.title}</p>
+                  <p className="text-sm text-ink-600">{b.desc}</p>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>

@@ -1,20 +1,17 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
-  Sparkles,
   ShieldCheck,
   Clock,
-  Zap,
-  Lock,
-  BarChart3,
   Headset,
   Users,
   FileText,
   Eye,
-  Pencil,
   CheckCircle2,
+  Sparkles,
 } from "lucide-react";
 import AppShell from "../components/AppShell";
+import ContactSupportModal from "../components/ContactSupportModal";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../lib/supabaseClient";
 import { getPlan } from "../lib/plans";
@@ -45,6 +42,7 @@ export default function Dashboard() {
   const [clientNotices, setClientNotices] = useState<Notice[]>([]);
 
   const [loading, setLoading] = useState(true);
+  const [supportOpen, setSupportOpen] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -154,13 +152,6 @@ export default function Dashboard() {
       icon: ShieldCheck,
       tint: "bg-brass-tint text-brass-dark",
     },
-  ];
-
-  const benefits = [
-    { icon: Zap, title: "AI-Powered Drafts", desc: "Get a structured first draft in minutes, ready for your review." },
-    { icon: ShieldCheck, title: "Built on GST & Income Tax Rules", desc: "Response structure follows current notice formats." },
-    { icon: Clock, title: "Save Time", desc: "Automate data extraction and document preparation." },
-    { icon: Lock, title: "Secure & Reliable", desc: "Your data is always protected." },
   ];
 
   function statusPill(status?: string) {
@@ -381,135 +372,33 @@ export default function Dashboard() {
             )}
           </div>
 
-          <div className="mt-8 rounded-xl border border-paper-line bg-white p-5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent-blue-tint text-accent-blue">
-                  <Pencil size={16} />
-                </div>
-                <div>
-                  <h2 className="text-sm font-semibold text-ink-950">Recent Manual Drafts</h2>
-                  <p className="text-xs text-ink-500">Your recently created drafts</p>
-                </div>
-              </div>
-              <Link to="/app/history" className="text-xs font-medium text-brass-dark hover:underline">
-                View All →
-              </Link>
-            </div>
-
-            {loading ? (
-              <p className="mt-4 text-sm text-ink-500">Loading manual drafts…</p>
-            ) : manualDrafts.length === 0 ? (
-              <div className="mt-4 rounded-lg border border-dashed border-paper-line p-8 text-center">
-                <p className="text-sm text-ink-600">No manual drafts created yet.</p>
-                <Link to="/app/new" className="mt-2 inline-block text-sm text-brass-dark underline">
-                  Draft your first response manually
-                </Link>
-              </div>
-            ) : (
-              <div className="mt-4 divide-y divide-paper-line rounded-lg border border-paper-line">
-                {manualDrafts.map((notice) => (
-                  <div key={notice.id} className="flex items-center justify-between gap-3 px-4 py-3.5 hover:bg-paper-dim/60">
-                    <Link to={`/app/notices/${notice.id}`} className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-ink-950 truncate">{notice.client_name}</p>
-                      <p className="text-xs text-ink-500 flex items-center gap-1.5 flex-wrap">
-                        <span className="inline-block rounded px-1.5 py-0.5 bg-brass-tint text-brass-dark text-[11px] border border-brass/20">
-                          {notice.notice_type}
-                        </span>
-                        {(notice as any).source === "gmail" ? " · via Gmail" : ""}
-                        <span className="text-ink-400">· Drafted {timeAgo(notice.created_at)}</span>
-                      </p>
-                    </Link>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <Link
-                        to={`/app/notices/${notice.id}`}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-paper-line px-3 py-1.5 text-xs font-medium text-ink-800 hover:bg-paper-dim"
-                      >
-                        <Eye size={13} /> Preview
-                      </Link>
-                      <Link
-                        to={`/app/notices/${notice.id}`}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-brass px-3 py-1.5 text-xs font-semibold text-white hover:bg-brass-dark"
-                      >
-                        <Pencil size={13} /> Edit
-                      </Link>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
         </div>
 
         {/* RIGHT PANEL */}
         <div className="space-y-5">
-          <div className="rounded-xl border border-paper-line bg-white p-5">
-            <h3 className="text-sm font-semibold text-ink-950">Why professionals choose NoticeDesk</h3>
-            <div className="mt-4 space-y-4">
-              {benefits.map((b) => {
-                const Icon = b.icon;
-                return (
-                  <div key={b.title} className="flex gap-3">
-                    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-brass-tint text-brass-dark">
-                      <Icon size={15} />
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold text-ink-950">{b.title}</p>
-                      <p className="text-xs text-ink-500 mt-0.5">{b.desc}</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-paper-line bg-white p-5">
-            <h3 className="flex items-center gap-1.5 text-sm font-semibold text-ink-950">
-              <BarChart3 size={15} /> Quick Stats
-            </h3>
-            <p className="text-xs text-ink-500">Your usage at a glance</p>
-
-            <div className="mt-4 space-y-3 text-xs">
-              <div className="flex items-center justify-between">
-                <span className="text-ink-600">Clients Onboarded</span>
-                <span className="font-semibold text-ink-950">{loading ? "—" : totalClients}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-ink-600">Drafts Used</span>
-                <span className="font-semibold text-ink-950">
-                  {loading ? "—" : `${used} / ${limit === "unlimited" ? "∞" : limit}`}
-                </span>
-              </div>
-              {limit !== "unlimited" && (
-                <div className="h-1.5 w-full rounded-full bg-paper-dim">
-                  <div
-                    className="h-1.5 rounded-full bg-brass"
-                    style={{ width: `${Math.min(100, (used / (limit as number)) * 100)}%` }}
-                  />
-                </div>
-              )}
-              <div className="flex items-center justify-between pt-1">
-                <span className="text-ink-600">Plan</span>
-                <span className="font-semibold text-brass-dark">{plan?.name || "Professional"}</span>
-              </div>
-            </div>
-          </div>
-
           <div className="rounded-xl border border-paper-line bg-accent-green-tint p-5">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent-green text-white">
               <Headset size={17} />
             </div>
             <p className="mt-3 text-sm font-semibold text-ink-950">Need Help?</p>
             <p className="mt-1 text-xs text-ink-600">Our team is here to assist you.</p>
-            <a
-              href="mailto:shashankaffiliate11@gmail.com"
+            <button
+              onClick={() => setSupportOpen(true)}
               className="mt-3 inline-block rounded-lg bg-white border border-paper-line px-4 py-2 text-xs font-semibold text-ink-800 hover:bg-paper-dim"
             >
               Contact Support
-            </a>
+            </button>
           </div>
         </div>
       </div>
+
+      <ContactSupportModal
+        open={supportOpen}
+        onClose={() => setSupportOpen(false)}
+        defaultName={profile?.full_name ?? ""}
+        defaultEmail={user?.email ?? ""}
+        defaultMobile={(profile as any)?.phone ?? ""}
+      />
     </AppShell>
   );
 }

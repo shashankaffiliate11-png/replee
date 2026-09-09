@@ -10,6 +10,7 @@ export default function Settings() {
   const [fullName, setFullName] = useState("");
   const [firmName, setFirmName] = useState("");
   const [membershipNo, setMembershipNo] = useState("");
+  const [mobile, setMobile] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -31,6 +32,7 @@ export default function Settings() {
         setFullName(data?.full_name ?? "");
         setFirmName(data?.firm_name ?? "");
         setMembershipNo(data?.ca_membership_no ?? "");
+        setMobile((data as any)?.phone ?? "");
       });
   }, [user]);
 
@@ -89,7 +91,7 @@ export default function Settings() {
     setSaved(false);
     const { error } = await supabase
       .from("profiles")
-      .update({ full_name: fullName, firm_name: firmName, ca_membership_no: membershipNo })
+      .update({ full_name: fullName, firm_name: firmName, ca_membership_no: membershipNo, phone: mobile })
       .eq("id", user.id);
     setSaving(false);
     if (!error) setSaved(true);
@@ -99,79 +101,90 @@ export default function Settings() {
     <AppShell>
       <h1 className="text-2xl font-semibold text-ink-950">Settings</h1>
 
-      <section className="mt-8 max-w-md border border-paper-line bg-white p-6">
-        <h2 className="font-semibold text-ink-950">Profile</h2>
-        <form onSubmit={handleSave} className="mt-4 space-y-4">
-          <div>
-            <label className="field-label" htmlFor="fullName">Name</label>
-            <input id="fullName" className="input" value={fullName} onChange={(e) => setFullName(e.target.value)} />
-          </div>
-          <div>
-            <label className="field-label" htmlFor="firmName">Firm name</label>
-            <input id="firmName" className="input" value={firmName} onChange={(e) => setFirmName(e.target.value)} />
-          </div>
-          <div>
-            <label className="field-label" htmlFor="membershipNo">ICAI membership no.</label>
-            <input
-              id="membershipNo"
-              className="input"
-              value={membershipNo}
-              onChange={(e) => setMembershipNo(e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="field-label">Email</label>
-            <p className="text-sm text-ink-700">{user?.email}</p>
-          </div>
-          <button type="submit" disabled={saving} className="btn-primary">
-            {saving ? "Saving…" : "Save changes"}
-          </button>
-          {saved && <span className="ml-3 text-sm text-ok">Saved</span>}
-        </form>
-      </section>
-
-      <section className="mt-6 max-w-md border border-paper-line bg-white p-6">
-        <h2 className="font-semibold text-ink-950">Automatic notice detection</h2>
-        <p className="mt-1 text-sm text-ink-600">
-          Connect your Gmail inbox so NoticeDesk can automatically detect incoming GST/Income-Tax
-          notices and pre-fill drafts for you.
-        </p>
-
-        {gmailBanner && (
-          <div
-            className={`mt-4 p-3 text-xs rounded-md border ${
-              gmailBanner.type === "success"
-                ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-                : "bg-red-50 border-red-200 text-red-700"
-            }`}
-          >
-            {gmailBanner.message}
-          </div>
-        )}
-
-        <div className="mt-4">
-          {gmailLoading ? (
-            <p className="text-sm text-ink-500">Checking connection…</p>
-          ) : gmailConnectedEmail ? (
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-ink-700">
-                Connected: <span className="font-medium">{gmailConnectedEmail}</span>
-              </p>
-              <button
-                onClick={handleConnectGmail}
-                disabled={gmailConnecting}
-                className="text-sm font-medium text-brass-dark hover:text-brass-light underline disabled:opacity-50"
-              >
-                {gmailConnecting ? "Reconnecting…" : "Reconnect"}
-              </button>
+      <div className="mt-8 grid gap-6 lg:grid-cols-2 max-w-4xl items-start">
+        <section className="border border-paper-line bg-white p-6">
+          <h2 className="font-semibold text-ink-950">Profile</h2>
+          <form onSubmit={handleSave} className="mt-4 space-y-4">
+            <div>
+              <label className="field-label" htmlFor="fullName">Name</label>
+              <input id="fullName" className="input" value={fullName} onChange={(e) => setFullName(e.target.value)} />
             </div>
-          ) : (
-            <button onClick={handleConnectGmail} disabled={gmailConnecting} className="btn-primary">
-              {gmailConnecting ? "Redirecting to Google…" : "Connect Gmail"}
+            <div>
+              <label className="field-label" htmlFor="firmName">Firm name</label>
+              <input id="firmName" className="input" value={firmName} onChange={(e) => setFirmName(e.target.value)} />
+            </div>
+            <div>
+              <label className="field-label" htmlFor="membershipNo">ICAI membership no.</label>
+              <input
+                id="membershipNo"
+                className="input"
+                value={membershipNo}
+                onChange={(e) => setMembershipNo(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="field-label" htmlFor="mobile">Mobile number</label>
+              <input
+                id="mobile"
+                className="input"
+                value={mobile}
+                onChange={(e) => setMobile(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="field-label">Email</label>
+              <p className="text-sm text-ink-700">{user?.email}</p>
+            </div>
+            <button type="submit" disabled={saving} className="btn-primary">
+              {saving ? "Saving…" : "Save changes"}
             </button>
+            {saved && <span className="ml-3 text-sm text-ok">Saved</span>}
+          </form>
+        </section>
+
+        <section className="border border-paper-line bg-white p-6">
+          <h2 className="font-semibold text-ink-950">Automatic notice detection</h2>
+          <p className="mt-1 text-sm text-ink-600">
+            Connect your Gmail inbox so NoticeDesk can automatically detect incoming GST/Income-Tax
+            notices and pre-fill drafts for you.
+          </p>
+
+          {gmailBanner && (
+            <div
+              className={`mt-4 p-3 text-xs rounded-md border ${
+                gmailBanner.type === "success"
+                  ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                  : "bg-red-50 border-red-200 text-red-700"
+              }`}
+            >
+              {gmailBanner.message}
+            </div>
           )}
-        </div>
-      </section>
+
+          <div className="mt-4">
+            {gmailLoading ? (
+              <p className="text-sm text-ink-500">Checking connection…</p>
+            ) : gmailConnectedEmail ? (
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-ink-700">
+                  Connected: <span className="font-medium">{gmailConnectedEmail}</span>
+                </p>
+                <button
+                  onClick={handleConnectGmail}
+                  disabled={gmailConnecting}
+                  className="text-sm font-medium text-brass-dark hover:text-brass-light underline disabled:opacity-50"
+                >
+                  {gmailConnecting ? "Reconnecting…" : "Reconnect"}
+                </button>
+              </div>
+            ) : (
+              <button onClick={handleConnectGmail} disabled={gmailConnecting} className="btn-primary">
+                {gmailConnecting ? "Redirecting to Google…" : "Connect Gmail"}
+              </button>
+            )}
+          </div>
+        </section>
+      </div>
     </AppShell>
   );
 }

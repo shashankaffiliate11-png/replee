@@ -137,9 +137,6 @@ export default function AppShell({ children }: AppShellProps) {
             <p className="text-ink-700">
               You're on the <strong className="font-semibold text-ink-950">{plan?.name || "Professional"}</strong> plan.
             </p>
-            <p className="mt-1 font-medium text-ink-800">
-              {used} of {limit === "unlimited" ? "unlimited" : limit} drafts used this month
-            </p>
             <Link
               to="/pricing"
               className="mt-2 block rounded-lg bg-brass py-2 text-center text-xs font-semibold text-white hover:bg-brass-dark"
