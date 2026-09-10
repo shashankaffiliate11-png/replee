@@ -192,7 +192,7 @@ export default function AppShell({ children }: AppShellProps) {
               </button>
 
               {accountMenuOpen && (
-                <div className="absolute right-0 top-full mt-2 w-44 rounded-lg border border-paper-line bg-white py-1 shadow-lg">
+                <div className="absolute right-0 top-full z-50 mt-2 w-44 rounded-lg border border-paper-line bg-white py-1 shadow-lg">
                   <Link
                     to="/app/settings"
                     className="block px-3 py-2 text-sm text-ink-700 hover:bg-paper-dim"

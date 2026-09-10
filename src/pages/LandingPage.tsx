@@ -177,26 +177,30 @@ export default function LandingPage() {
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(60%_60%_at_70%_0%,rgba(255,199,0,0.18),transparent)]" />
         <div className="mx-auto grid max-w-[1280px] gap-10 px-6 pb-12 pt-10 lg:grid-cols-[1.05fr_0.95fr] lg:px-8 lg:pt-16">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full bg-black px-3 py-1.5 text-[11px] font-bold tracking-wide text-white">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-brass" />
-              FOR PRACTICING CHARTERED ACCOUNTANTS
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex items-center gap-2 rounded-full bg-black px-3 py-1.5 text-[11px] font-bold tracking-wide text-white">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-brass" />
+                AI PROCESSING • LIVE
+              </div>
+              <div className="inline-flex items-center rounded-full bg-brass px-3 py-1.5 text-[11px] font-bold tracking-wide text-black">
+                2.3s avg
+              </div>
             </div>
 
             <h1 className="mt-6 text-[36px] font-extrabold leading-[0.98] tracking-tight lg:text-[52px]">
-              GST &amp; Income Tax Notices,
-              <br />
+              GST &amp; Income Tax Notices{" "}
               <span className="relative inline-block">
-                Answered
+                Answered Before
                 <span className="absolute -bottom-2 left-0 h-[10px] w-full -rotate-1 bg-brass/60" />
-              </span>
-              <br />
-              Before Your Client Even Calls
+              </span>{" "}
+              Your Client Even Calls
             </h1>
 
             <p className="mt-6 max-w-[560px] text-base font-medium leading-[1.6] text-black/60 lg:text-lg">
-              Paste the notice, add the facts of the case, and get a structured,
-              section-cited draft response you review and finalize —{" "}
-              <span className="font-semibold text-black">not a black-box answer you have to trust blindly.</span>
+              As soon as a notice lands in your inbox, NoticeDesk extracts{" "}
+              <span className="font-semibold text-black">GSTIN, PAN, Notice Type</span> &amp;
+              auto-generates a legally vetted response draft in{" "}
+              <span className="font-semibold text-black">2.3 seconds</span>.
             </p>
 
             <div className="mt-8 flex flex-wrap gap-3">
@@ -229,24 +233,20 @@ export default function LandingPage() {
           {/* Live extraction mockup */}
           <div className="relative">
             <div className="absolute -inset-6 -z-10 rounded-[32px] bg-brass/20 blur-[40px]" />
-            <div className="rounded-[24px] border border-white/10 bg-[#0A0A0A] p-3 shadow-[0_20px_60px_rgba(0,0,0,0.25)] lg:p-4">
-              <div className="overflow-hidden rounded-[16px] border border-white/10 bg-[#171717]">
-                <div className="flex h-11 items-center justify-between border-b border-white/10 px-4">
-                  <div className="flex items-center gap-2 text-[12px] font-medium text-white/70">
+            <div className="rounded-[24px] border border-black/10 bg-white p-3 shadow-[0_20px_60px_rgba(0,0,0,0.12)] lg:p-4">
+              <div className="overflow-hidden rounded-[16px] border border-black/10 bg-white">
+                <div className="flex h-11 items-center justify-between border-b border-black/10 px-4">
+                  <div className="flex items-center gap-2 text-[12px] font-medium text-black/70">
                     <div className="grid h-6 w-6 place-items-center rounded-full bg-brass font-bold text-black">N</div>
                     Automated Email Extraction
-                    <span className="ml-2 rounded-full bg-emerald-400/20 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
+                    <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
                       LIVE
                     </span>
                   </div>
-                  <div className="flex gap-1.5">
-                    <div className="h-2.5 w-2.5 rounded-full bg-white/20" />
-                    <div className="h-2.5 w-2.5 rounded-full bg-white/20" />
-                    <div className="h-2.5 w-2.5 rounded-full bg-brass" />
-                  </div>
+                  <span className="rounded-full bg-brass px-2.5 py-1 text-[10px] font-bold text-black">2.3s avg</span>
                 </div>
                 <div className="p-3">
-                  <div className="grid grid-cols-[1.2fr_0.9fr_0.6fr_0.6fr] px-3 py-2 text-[10px] font-bold tracking-widest text-white/30">
+                  <div className="grid grid-cols-[1.2fr_0.9fr_0.6fr_0.6fr] px-3 py-2 text-[10px] font-bold tracking-widest text-black/30">
                     <span>FROM</span>
                     <span>EXTRACTED ID</span>
                     <span>TYPE</span>
@@ -256,15 +256,15 @@ export default function LandingPage() {
                     {DEMO_ROWS.map((row) => (
                       <div
                         key={row.id}
-                        className="grid grid-cols-[1.2fr_0.9fr_0.6fr_0.6fr] items-center rounded-xl border border-white/[0.06] bg-white/[0.04] px-3 py-3 text-[12px] text-white hover:bg-white/[0.06]"
+                        className="grid grid-cols-[1.2fr_0.9fr_0.6fr_0.6fr] items-center rounded-xl border border-black/[0.06] bg-black/[0.02] px-3 py-3 text-[12px] text-black hover:bg-black/[0.04]"
                       >
                         <div className="flex min-w-0 items-center gap-2">
-                          <div className="grid h-7 w-7 place-items-center rounded-full bg-white text-black">
+                          <div className="grid h-7 w-7 place-items-center rounded-full bg-paper-dim text-black">
                             <Mail size={12} />
                           </div>
                           <div className="truncate">
                             <div className="truncate font-semibold">{row.from}</div>
-                            <div className="text-[10px] text-white/40">{row.time}</div>
+                            <div className="text-[10px] text-black/40">{row.time}</div>
                           </div>
                         </div>
                         <div className="truncate font-mono text-[11px]">{row.id}</div>
@@ -274,7 +274,7 @@ export default function LandingPage() {
                             className={`rounded-full px-2 py-1 text-[10px] font-bold ${
                               row.status === "DRAFTED"
                                 ? "bg-brass text-black"
-                                : "border border-white/10 bg-white/10 text-white/60"
+                                : "border border-black/10 bg-black/5 text-black/60"
                             }`}
                           >
                             {row.status}
@@ -284,7 +284,7 @@ export default function LandingPage() {
                     ))}
                   </div>
 
-                  <div className="mt-4 rounded-[14px] bg-white p-4 text-ink-950">
+                  <div className="mt-4 rounded-[14px] border border-black/10 bg-paper-dim p-4 text-ink-950">
                     <div className="flex items-center justify-between">
                       <span className="text-[11px] font-bold tracking-widest text-black/40">
                         AI DRAFT PREVIEW · ASMT-10
@@ -307,7 +307,7 @@ export default function LandingPage() {
                       </button>
                       <button
                         onClick={handleEnterApp}
-                        className="h-8 rounded-full border border-black/10 text-[12px] font-semibold"
+                        className="h-8 rounded-full border border-black/10 bg-white text-[12px] font-semibold"
                       >
                         Edit Draft
                       </button>

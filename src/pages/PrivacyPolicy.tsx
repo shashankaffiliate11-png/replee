@@ -206,10 +206,7 @@ export default function PrivacyPolicy() {
           </section>
 
           <p className="border-t border-paper-line pt-6 text-xs text-ink-400">
-            This is a template and does not constitute legal advice. Have this
-            reviewed by a qualified lawyer — particularly the third-party
-            data-processing section — before relying on it, given the
-            sensitivity of the client data this app handles.
+            
           </p>
         </div>
       </main>

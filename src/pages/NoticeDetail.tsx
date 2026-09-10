@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
+import { Document, Packer, Paragraph, TextRun } from "docx";
+import jsPDF from "jspdf";
 import AppShell from "../components/AppShell";
 import { supabase } from "../lib/supabaseClient";
 import type { Notice } from "../lib/database.types";
@@ -12,6 +14,9 @@ export default function NoticeDetail() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [fileUrl, setFileUrl] = useState<string | null>(null);
+  const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
+  const [downloadFormat, setDownloadFormat] = useState<"docx" | "pdf" | null>(null);
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -45,7 +50,10 @@ export default function NoticeDetail() {
       .update({ final_response: editedText, status: "edited" })
       .eq("id", notice.id);
     setSaving(false);
-    if (!error) setSaved(true);
+    if (!error) {
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    }
   }
 
   async function handleFinalize() {
@@ -59,14 +67,54 @@ export default function NoticeDetail() {
     if (!error) setNotice({ ...notice, status: "finalized" });
   }
 
-  function handleDownload() {
-    const blob = new Blob([editedText], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${notice?.client_name ?? "notice-response"}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
+  async function handleConfirmDownload() {
+    if (!downloadFormat) return;
+    setDownloading(true);
+    const filenameBase = notice?.client_name ?? "notice-response";
+
+    try {
+      if (downloadFormat === "docx") {
+        const paragraphs = editedText
+          .split("\n")
+          .map((line) => new Paragraph({ children: [new TextRun(line)] }));
+        const doc = new Document({ sections: [{ children: paragraphs }] });
+        const blob = await Packer.toBlob(doc);
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${filenameBase}.docx`;
+        a.click();
+        URL.revokeObjectURL(url);
+      } else {
+        const doc = new jsPDF();
+        const marginLeft = 15;
+        const marginTop = 20;
+        const lineHeight = 7;
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const maxLinesPerPage = Math.floor((pageHeight - marginTop - 15) / lineHeight);
+
+        doc.setFontSize(11);
+        const lines = doc.splitTextToSize(editedText, 180);
+
+        let cursorY = marginTop;
+        let lineCount = 0;
+        for (const line of lines) {
+          if (lineCount >= maxLinesPerPage) {
+            doc.addPage();
+            cursorY = marginTop;
+            lineCount = 0;
+          }
+          doc.text(line, marginLeft, cursorY);
+          cursorY += lineHeight;
+          lineCount++;
+        }
+        doc.save(`${filenameBase}.pdf`);
+      }
+    } finally {
+      setDownloading(false);
+      setDownloadMenuOpen(false);
+      setDownloadFormat(null);
+    }
   }
 
   if (loading) {
@@ -132,20 +180,62 @@ export default function NoticeDetail() {
             value={editedText}
             onChange={(e) => setEditedText(e.target.value)}
           />
-        </div>
-      </div>
 
-      <div className="mt-6 flex flex-wrap items-center gap-3">
-        <button onClick={handleSave} disabled={saving} className="btn-secondary">
-          {saving ? "Saving…" : "Save edits"}
-        </button>
-        <button onClick={handleFinalize} disabled={saving} className="btn-primary">
-          Mark as finalized
-        </button>
-        <button onClick={handleDownload} className="btn-secondary">
-          Download as text
-        </button>
-        {saved && <span className="text-sm text-ok">Saved</span>}
+          <div className="mt-3 flex flex-wrap items-center justify-end gap-3">
+            {saved && <span className="text-sm font-medium text-ok">Changes Saved</span>}
+
+            <button onClick={handleSave} disabled={saving} className="btn-secondary">
+              {saving ? "Saving…" : "Save edits"}
+            </button>
+            <button onClick={handleFinalize} disabled={saving} className="btn-primary">
+              Mark as finalized
+            </button>
+
+            <div className="relative">
+              <button
+                onClick={() => setDownloadMenuOpen((v) => !v)}
+                className="btn-secondary"
+              >
+                DOWNLOAD
+              </button>
+
+              {downloadMenuOpen && (
+                <div className="absolute right-0 top-full z-50 mt-2 w-56 rounded-lg border border-paper-line bg-white p-3 shadow-lg">
+                  <p className="text-xs font-medium text-ink-700 mb-2">Choose a format:</p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setDownloadFormat("docx")}
+                      className={`flex-1 rounded-md border px-3 py-2 text-xs font-medium ${
+                        downloadFormat === "docx"
+                          ? "border-brass bg-brass-tint text-brass-dark"
+                          : "border-paper-line text-ink-700 hover:bg-paper-dim"
+                      }`}
+                    >
+                      Word (.docx)
+                    </button>
+                    <button
+                      onClick={() => setDownloadFormat("pdf")}
+                      className={`flex-1 rounded-md border px-3 py-2 text-xs font-medium ${
+                        downloadFormat === "pdf"
+                          ? "border-brass bg-brass-tint text-brass-dark"
+                          : "border-paper-line text-ink-700 hover:bg-paper-dim"
+                      }`}
+                    >
+                      PDF
+                    </button>
+                  </div>
+                  <button
+                    onClick={handleConfirmDownload}
+                    disabled={!downloadFormat || downloading}
+                    className="btn-primary mt-3 w-full disabled:opacity-40"
+                  >
+                    {downloading ? "Preparing…" : "DOWNLOAD"}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
       <p className="mt-6 max-w-prose text-xs text-ink-400">

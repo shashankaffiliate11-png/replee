@@ -153,7 +153,7 @@ export default function Dashboard() {
         {/* MAIN COLUMN */}
         <div>
           <div className="mt-5 grid grid-cols-1 gap-4">
-            <div className="relative">
+            <div className="relative w-1/2">
               <div className="flex gap-2">
                 <input
                   type="text"

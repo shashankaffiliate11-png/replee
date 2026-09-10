@@ -344,7 +344,7 @@ export default function OnboardClient() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full max-w-sm bg-amber-500 hover:bg-amber-600 text-ink-950 font-semibold py-2 px-6 rounded-md text-sm shadow transition-colors disabled:opacity-50"
+              className="w-48 bg-amber-500 hover:bg-amber-600 text-ink-950 font-semibold py-2 px-6 rounded-md text-sm shadow transition-colors disabled:opacity-50"
             >
               {loading ? "Onboarding Client..." : "Onboard Client"}
             </button>
