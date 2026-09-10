@@ -114,26 +114,27 @@ export default function LandingPage() {
     <div className="min-h-screen overflow-x-hidden bg-white text-ink-950 antialiased selection:bg-brass selection:text-black">
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-black/[0.06] bg-white/80 backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-[1440px] items-center justify-between px-6 lg:px-8">
-          <div className="flex items-center gap-10">
-            <Link to="/" className="flex items-center gap-3">
-              <div className="flex h-9 w-9 rotate-[-3deg] items-center justify-center rounded-[10px] bg-brass shadow-[0_2px_8px_rgba(255,199,0,0.4)]">
-                <div className="grid h-7 w-7 -rotate-[3deg] place-items-center rounded-[7px] bg-black text-[15px] font-extrabold text-brass">
-                  N
-                </div>
+        <div className="mx-auto grid h-16 max-w-[1440px] grid-cols-[auto_1fr_auto] items-center px-6 lg:px-8">
+          <Link to="/" className="flex items-center gap-3">
+            <div className="flex h-9 w-9 rotate-[-3deg] items-center justify-center rounded-[10px] bg-brass shadow-[0_2px_8px_rgba(255,199,0,0.4)]">
+              <div className="grid h-7 w-7 -rotate-[3deg] place-items-center rounded-[7px] bg-black text-[15px] font-extrabold text-brass">
+                N
               </div>
-              <span className="text-lg font-extrabold tracking-tight">NoticeDesk</span>
-              <span className="ml-1 hidden rounded-full bg-black px-2 py-1 text-[10px] font-bold tracking-widest text-white md:inline-flex">
-                CA TOOL
-              </span>
-            </Link>
-            <nav className="hidden items-center gap-7 text-sm font-medium text-black/60 lg:flex">
-              <a href="#features" className="transition hover:text-black">Features</a>
-              <a href="#how" className="transition hover:text-black">How it works</a>
-              <a href="#pricing" className="transition hover:text-black">Pricing</a>
-            </nav>
-          </div>
-          <div className="flex items-center gap-3">
+            </div>
+            <span className="text-lg font-extrabold tracking-tight">NoticeDesk</span>
+            <span className="ml-1 hidden rounded-full bg-black px-2 py-1 text-[10px] font-bold tracking-widest text-white md:inline-flex">
+              CA TOOL
+            </span>
+          </Link>
+
+          <nav className="hidden items-center justify-center gap-7 text-sm font-medium text-black/60 lg:flex">
+            <a href="#features" className="transition hover:text-black">Features</a>
+            <a href="#how" className="transition hover:text-black">How it works</a>
+            <a href="#pricing" className="transition hover:text-black">Pricing</a>
+            <Link to="/blog" className="transition hover:text-black">Blog</Link>
+          </nav>
+
+          <div className="flex items-center gap-3 justify-self-end">
             {session ? (
               <Link
                 to="/app"
@@ -168,6 +169,7 @@ export default function LandingPage() {
             <a href="#features" onClick={() => setMobileNavOpen(false)}>Features</a>
             <a href="#how" onClick={() => setMobileNavOpen(false)}>How it works</a>
             <a href="#pricing" onClick={() => setMobileNavOpen(false)}>Pricing</a>
+            <Link to="/blog" onClick={() => setMobileNavOpen(false)}>Blog</Link>
           </div>
         )}
       </header>
