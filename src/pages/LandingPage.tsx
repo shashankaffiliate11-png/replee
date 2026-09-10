@@ -173,9 +173,9 @@ export default function LandingPage() {
       </header>
 
       {/* Hero */}
-      <section className="relative">
+      <section className="relative flex min-h-[calc(100vh-4rem)] items-center">
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(60%_60%_at_70%_0%,rgba(255,199,0,0.18),transparent)]" />
-        <div className="mx-auto grid max-w-[1440px] gap-10 px-6 pb-6 pt-6 lg:grid-cols-[1.05fr_0.95fr] lg:px-8 lg:pt-8">
+        <div className="mx-auto grid w-full max-w-[1440px] gap-10 px-6 py-6 lg:grid-cols-[1.05fr_0.95fr] lg:px-8">
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <div className="inline-flex items-center gap-2 rounded-full bg-black px-3 py-1.5 text-[11px] font-bold tracking-wide text-white">
