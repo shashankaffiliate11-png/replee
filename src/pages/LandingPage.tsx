@@ -114,7 +114,7 @@ export default function LandingPage() {
     <div className="min-h-screen overflow-x-hidden bg-white text-ink-950 antialiased selection:bg-brass selection:text-black">
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-black/[0.06] bg-white/80 backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-[1280px] items-center justify-between px-6 lg:px-8">
+        <div className="mx-auto flex h-16 max-w-[1440px] items-center justify-between px-6 lg:px-8">
           <div className="flex items-center gap-10">
             <Link to="/" className="flex items-center gap-3">
               <div className="flex h-9 w-9 rotate-[-3deg] items-center justify-center rounded-[10px] bg-brass shadow-[0_2px_8px_rgba(255,199,0,0.4)]">
@@ -175,7 +175,7 @@ export default function LandingPage() {
       {/* Hero */}
       <section className="relative">
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(60%_60%_at_70%_0%,rgba(255,199,0,0.18),transparent)]" />
-        <div className="mx-auto grid max-w-[1280px] gap-10 px-6 pb-12 pt-10 lg:grid-cols-[1.05fr_0.95fr] lg:px-8 lg:pt-16">
+        <div className="mx-auto grid max-w-[1440px] gap-10 px-6 pb-6 pt-6 lg:grid-cols-[1.05fr_0.95fr] lg:px-8 lg:pt-8">
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <div className="inline-flex items-center gap-2 rounded-full bg-black px-3 py-1.5 text-[11px] font-bold tracking-wide text-white">
@@ -321,7 +321,7 @@ export default function LandingPage() {
       </section>
 
       {/* How it works */}
-      <section id="how" className="mx-auto max-w-[1280px] px-6 py-16 lg:px-8 lg:py-20">
+      <section id="how" className="mx-auto max-w-[1440px] px-6 py-16 lg:px-8 lg:py-20">
         <div className="mb-10 flex flex-wrap items-end justify-between gap-4">
           <div>
             <div className="inline-flex rounded-full bg-black px-3 py-1 text-[11px] font-bold tracking-widest text-white">
@@ -385,7 +385,7 @@ export default function LandingPage() {
 
       {/* Features */}
       <section id="features" className="bg-[#0A0A0A] text-white">
-        <div className="mx-auto max-w-[1280px] px-6 py-16 lg:px-8 lg:py-20">
+        <div className="mx-auto max-w-[1440px] px-6 py-16 lg:px-8 lg:py-20">
           <div className="mb-8 flex items-center gap-3">
             <span className="rounded-full bg-brass px-3 py-1 text-[11px] font-bold tracking-widest text-black">
               FEATURES BUILT FOR CA PRACTICE
@@ -410,7 +410,7 @@ export default function LandingPage() {
       </section>
 
       {/* Pricing — real plan data, new visual language */}
-      <section id="pricing" className="mx-auto max-w-[1280px] px-6 py-16 lg:px-8 lg:py-20">
+      <section id="pricing" className="mx-auto max-w-[1440px] px-6 py-16 lg:px-8 lg:py-20">
         <div className="mx-auto max-w-[720px] text-center">
           <div className="inline-flex items-center gap-2 rounded-full bg-brass px-3 py-1 text-[11px] font-bold tracking-widest text-black">
             SIMPLE, PRACTICE-SIZED PRICING
@@ -507,7 +507,7 @@ export default function LandingPage() {
           className="h-1.5 w-full"
           style={{ backgroundImage: "repeating-linear-gradient(90deg, #FFC700 0 24px, #FFD740 24px 48px)" }}
         />
-        <div className="mx-auto grid max-w-[1280px] gap-8 px-6 py-12 lg:grid-cols-[1.2fr_1fr_1fr_1fr] lg:px-8">
+        <div className="mx-auto grid max-w-[1440px] gap-8 px-6 py-12 lg:grid-cols-[1.2fr_1fr_1fr_1fr] lg:px-8">
           <div>
             <div className="flex items-center gap-3">
               <div className="grid h-9 w-9 rotate-[-3deg] place-items-center rounded-[10px] bg-brass">
