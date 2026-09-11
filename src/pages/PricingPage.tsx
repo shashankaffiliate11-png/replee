@@ -102,7 +102,7 @@ export default function PricingPage() {
       <header className="shrink-0 border-b border-paper-line">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
           <Link to="/" className="text-lg font-semibold text-ink-950">
-            Notice<span className="text-brass-dark">Desk</span>
+            Notice<span className="text-brass">Desk</span>
           </Link>
           {session ? (
             <Link to="/app" className="btn-primary py-2.5">Open app</Link>

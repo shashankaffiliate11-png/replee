@@ -203,7 +203,7 @@ export default function OnboardClient() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-ink-900 uppercase tracking-wide mb-0.5">
                     TRADE NAME
@@ -243,7 +243,7 @@ export default function OnboardClient() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-ink-900 uppercase tracking-wide mb-0.5">
                     SIGNATORY NAME
@@ -298,7 +298,7 @@ export default function OnboardClient() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-ink-900 uppercase tracking-wide mb-0.5">
                     STATE

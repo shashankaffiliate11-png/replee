@@ -315,7 +315,7 @@ export default function NewNotice() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block font-semibold text-ink-500 uppercase tracking-wide mb-1">TRADE NAME</label>
                   <input
@@ -359,7 +359,7 @@ export default function NewNotice() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block font-semibold text-ink-500 uppercase tracking-wide mb-1">STATE</label>
                   <input
@@ -382,7 +382,7 @@ export default function NewNotice() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block font-semibold text-ink-500 uppercase tracking-wide mb-1">SIGNATORY NAME</label>
                   <input
