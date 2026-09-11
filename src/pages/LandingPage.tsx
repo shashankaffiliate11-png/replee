@@ -232,8 +232,8 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Live extraction mockup */}
-          <div className="relative">
+          {/* Live extraction mockup — purely illustrative, not interactive */}
+          <div className="relative pointer-events-none select-none">
             <div className="absolute -inset-6 -z-10 rounded-[32px] bg-brass/20 blur-[40px]" />
             <div className="rounded-[24px] border border-black/10 bg-white p-3 shadow-[0_20px_60px_rgba(0,0,0,0.12)] lg:p-4">
               <div className="overflow-hidden rounded-[16px] border border-black/10 bg-white">
@@ -258,7 +258,7 @@ export default function LandingPage() {
                     {DEMO_ROWS.map((row) => (
                       <div
                         key={row.id}
-                        className="grid grid-cols-[1.2fr_0.9fr_0.6fr_0.6fr] items-center rounded-xl border border-black/[0.06] bg-black/[0.02] px-3 py-3 text-[12px] text-black hover:bg-black/[0.04]"
+                        className="grid grid-cols-[1.2fr_0.9fr_0.6fr_0.6fr] items-center rounded-xl border border-black/[0.06] bg-black/[0.02] px-3 py-3 text-[12px] text-black"
                       >
                         <div className="flex min-w-0 items-center gap-2">
                           <div className="grid h-7 w-7 place-items-center rounded-full bg-paper-dim text-black">
@@ -301,18 +301,12 @@ export default function LandingPage() {
                       <div className="h-2 w-4/6 rounded-full bg-black/10" />
                     </div>
                     <div className="mt-4 grid grid-cols-2 gap-2">
-                      <button
-                        onClick={handleEnterApp}
-                        className="h-8 rounded-full bg-black text-[12px] font-bold text-white"
-                      >
+                      <div className="pointer-events-none h-8 rounded-full bg-black text-center text-[12px] font-bold leading-8 text-white">
                         Review Draft
-                      </button>
-                      <button
-                        onClick={handleEnterApp}
-                        className="h-8 rounded-full border border-black/10 bg-white text-[12px] font-semibold"
-                      >
+                      </div>
+                      <div className="pointer-events-none h-8 rounded-full border border-black/10 bg-white text-center text-[12px] font-semibold leading-8">
                         Edit Draft
-                      </button>
+                      </div>
                     </div>
                   </div>
                 </div>

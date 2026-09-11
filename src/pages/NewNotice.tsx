@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import AppShell from "../components/AppShell";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../context/AuthContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 
 interface ClientRecord {
   id: string;
@@ -151,8 +151,16 @@ export default function NewNotice() {
         <p className="text-sm text-ink-600 mb-6">Select a client and upload notice to generate automated response.</p>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-md">
-            {error}
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-700">
+            <span>{error}</span>
+            {error.toLowerCase().includes("upgrade") && (
+              <Link
+                to="/pricing"
+                className="whitespace-nowrap rounded-full bg-brass px-3 py-1.5 text-[11px] font-bold text-black hover:bg-brass-light"
+              >
+                Upgrade Plan →
+              </Link>
+            )}
           </div>
         )}
 
