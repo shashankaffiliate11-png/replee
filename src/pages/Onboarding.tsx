@@ -18,13 +18,44 @@ export default function Onboarding() {
     setSaving(true);
     setError(null);
 
+    // Referral capture — set by LandingPage.tsx if this user arrived via a
+    // ?ref= link. This is the real "new account" moment, not the OAuth
+    // redirect, so it's handled here rather than in AuthCallback.
+    const refCode = sessionStorage.getItem("nd_ref");
+    let referredBy: string | null = null;
+
+    if (refCode) {
+      const { data: referrer } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("referral_code", refCode)
+        .neq("id", user.id) // can't refer yourself
+        .maybeSingle();
+      if (referrer) referredBy = referrer.id;
+    }
+
     const { error: upsertError } = await supabase.from("profiles").upsert({
       id: user.id,
       full_name: fullName || null,
       firm_name: firmName || "Independent Practice",
       ca_membership_no: membershipNo || null,
       plan: "free_trial",
+      referred_by: referredBy,
+      // Signup bonus for arriving via a referral link — separate from the
+      // reward the referrer gets later, which only fires once this user
+      // creates their first real notice (see the DB trigger).
+      bonus_drafts: referredBy ? 5 : 0,
     });
+
+    if (!upsertError && referredBy) {
+      await supabase.from("referrals").insert({
+        referrer_id: referredBy,
+        referred_user_id: user.id,
+        referred_email: user.email,
+        status: "pending",
+      });
+      sessionStorage.removeItem("nd_ref");
+    }
 
     setSaving(false);
     if (upsertError) {

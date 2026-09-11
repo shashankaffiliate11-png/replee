@@ -54,7 +54,11 @@ export default function AppShell({ children }: AppShellProps) {
 
   const plan = profile ? getPlan(profile.plan) : null;
   const used = usage?.notices_used ?? 0;
-  const limit = plan?.noticesPerMonth ?? 3;
+  const bonusDrafts = (profile as any)?.bonus_drafts ?? 0;
+  const limit =
+    plan?.noticesPerMonth === "unlimited"
+      ? "unlimited"
+      : (plan?.noticesPerMonth ?? 3) + bonusDrafts;
 
   const navItems = [
     { label: "Dashboard", path: "/app", icon: Home },

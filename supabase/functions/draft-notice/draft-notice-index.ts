@@ -104,12 +104,17 @@ Deno.serve(async (req) => {
   // ── 1. Check plan limit ──────────────────────────────────────────────
   const { data: profile } = await admin
     .from("profiles")
-    .select("plan")
+    .select("plan, bonus_drafts")
     .eq("id", user.id)
     .maybeSingle();
 
   const plan = profile?.plan ?? "free_trial";
-  const limit = PLAN_LIMITS[plan] ?? PLAN_LIMITS.free_trial;
+  const planLimit = PLAN_LIMITS[plan] ?? PLAN_LIMITS.free_trial;
+  const bonusDrafts = profile?.bonus_drafts ?? 0;
+  // Referral bonus drafts stack on top of the plan's monthly allowance —
+  // must match the same calculation the frontend uses, or users see "you
+  // have room" in the UI and then get blocked here anyway.
+  const limit = planLimit === "unlimited" ? "unlimited" : planLimit + bonusDrafts;
 
   const periodMonth = new Date();
   periodMonth.setDate(1);
@@ -127,7 +132,7 @@ Deno.serve(async (req) => {
   if (limit !== "unlimited" && used >= limit) {
     return json(
       {
-        error: `You've used all ${limit} drafts on your ${plan.replace("_", " ")} plan this month. Upgrade to keep drafting.`,
+        error: `You've used all ${limit} drafts on your ${plan.replace("_", " ")} plan this month${bonusDrafts > 0 ? " (including referral bonus drafts)" : ""}. Upgrade to keep drafting.`,
       },
       403
     );

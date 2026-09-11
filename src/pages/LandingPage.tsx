@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowRight,
@@ -105,6 +105,16 @@ export default function LandingPage() {
   const [authOpen, setAuthOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+
+  useEffect(() => {
+    const ref = new URLSearchParams(window.location.search).get("ref");
+    if (ref) {
+      // Stored, not applied yet — Onboarding.tsx reads this when the
+      // profile row is actually created, which is the real "new user"
+      // moment (OAuth sign-in alone doesn't mean a new account).
+      sessionStorage.setItem("nd_ref", ref);
+    }
+  }, []);
 
   function handleEnterApp() {
     if (session) navigate("/app");

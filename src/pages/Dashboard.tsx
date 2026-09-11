@@ -96,7 +96,11 @@ export default function Dashboard() {
 
   const plan = profile ? getPlan(profile.plan) : null;
   const used = usage?.notices_used ?? 0;
-  const limit = plan?.noticesPerMonth ?? 3;
+  const bonusDrafts = (profile as any)?.bonus_drafts ?? 0;
+  const limit =
+    plan?.noticesPerMonth === "unlimited"
+      ? "unlimited"
+      : (plan?.noticesPerMonth ?? 3) + bonusDrafts;
   const limitReached = limit !== "unlimited" && used >= limit;
 
   const filteredClients = clients.filter((c) =>
