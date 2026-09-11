@@ -158,7 +158,7 @@ export default function LandingPage() {
                 onClick={() => setAuthOpen(true)}
                 className="hidden h-9 items-center rounded-full bg-black px-4 text-[13px] font-semibold text-white md:inline-flex"
               >
-                Sign in
+                Sign in 
               </button>
             )}
             <button
