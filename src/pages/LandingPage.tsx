@@ -251,7 +251,7 @@ export default function LandingPage() {
                 <div className="flex h-11 items-center justify-between border-b border-black/10 px-4">
                   <div className="flex items-center gap-2 text-[12px] font-medium text-black/70">
                     <div className="grid h-6 w-6 place-items-center rounded-full bg-brass font-bold text-black">N</div>
-                    Automated Email Extraction
+                    Automated Notice Extraction
                     <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
                       LIVE
                     </span>
