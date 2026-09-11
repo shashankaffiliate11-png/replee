@@ -413,7 +413,7 @@ export default function LandingPage() {
       </section>
 
       {/* Pricing — real plan data, new visual language */}
-      <section id="pricing" className="mx-auto max-w-[1440px] px-6 py-16 lg:px-8 lg:py-20">
+      <section id="pricing" className="mx-auto max-w-[1440px] scroll-mt-20 px-6 py-16 lg:px-8 lg:py-20">
         <div className="mx-auto max-w-[720px] text-center">
           <div className="inline-flex items-center gap-2 rounded-full bg-brass px-3 py-1 text-[11px] font-bold tracking-widest text-black">
             SIMPLE, PRACTICE-SIZED PRICING
