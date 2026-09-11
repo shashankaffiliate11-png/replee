@@ -46,8 +46,7 @@ export default function Settings() {
     if (!user) return;
 
     (async () => {
-      const { data: profileRow } = await supabase
-        .from("profiles")
+      const { data: profileRow } = await (supabase.from("profiles") as any)
         .select("referral_code, bonus_drafts")
         .eq("id", user.id)
         .maybeSingle();
@@ -58,7 +57,7 @@ export default function Settings() {
         // Generate once, on first visit to Settings — short, unique enough
         // for a link people will actually type or click, not a UUID.
         code = `${user.id.slice(0, 6)}${Math.random().toString(36).slice(2, 6)}`.toUpperCase();
-        await supabase.from("profiles").update({ referral_code: code }).eq("id", user.id);
+        await (supabase.from("profiles") as any).update({ referral_code: code }).eq("id", user.id);
       }
       setReferralCode(code);
 

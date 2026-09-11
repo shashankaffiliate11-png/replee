@@ -25,8 +25,7 @@ export default function Onboarding() {
     let referredBy: string | null = null;
 
     if (refCode) {
-      const { data: referrer } = await supabase
-        .from("profiles")
+      const { data: referrer } = await (supabase.from("profiles") as any)
         .select("id")
         .eq("referral_code", refCode)
         .neq("id", user.id) // can't refer yourself
@@ -34,7 +33,7 @@ export default function Onboarding() {
       if (referrer) referredBy = referrer.id;
     }
 
-    const { error: upsertError } = await supabase.from("profiles").upsert({
+    const { error: upsertError } = await (supabase.from("profiles") as any).upsert({
       id: user.id,
       full_name: fullName || null,
       firm_name: firmName || "Independent Practice",
@@ -48,7 +47,7 @@ export default function Onboarding() {
     });
 
     if (!upsertError && referredBy) {
-      await supabase.from("referrals").insert({
+      await (supabase.from("referrals" as any) as any).insert({
         referrer_id: referredBy,
         referred_user_id: user.id,
         referred_email: user.email,
