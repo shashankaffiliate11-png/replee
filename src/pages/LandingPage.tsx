@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { PLANS } from "../lib/plans";
+import { BLOG_POSTS } from "../lib/blogPosts";
 import AuthModal from "../components/AuthModal";
 
 const FEATURES = [
@@ -121,7 +122,7 @@ export default function LandingPage() {
                 N
               </div>
             </div>
-            <span className="text-lg font-extrabold tracking-tight">Notice<span className="text-brass">Desk</span></span>
+            <span className="text-lg font-extrabold tracking-tight">NoticeDesk</span>
             <span className="ml-1 hidden rounded-full bg-black px-2 py-1 text-[10px] font-bold tracking-widest text-white md:inline-flex">
               CA TOOL
             </span>
@@ -232,8 +233,8 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Live extraction mockup — purely illustrative, not interactive */}
-          <div className="relative pointer-events-none select-none">
+          {/* Live extraction mockup */}
+          <div className="relative">
             <div className="absolute -inset-6 -z-10 rounded-[32px] bg-brass/20 blur-[40px]" />
             <div className="rounded-[24px] border border-black/10 bg-white p-3 shadow-[0_20px_60px_rgba(0,0,0,0.12)] lg:p-4">
               <div className="overflow-hidden rounded-[16px] border border-black/10 bg-white">
@@ -258,7 +259,7 @@ export default function LandingPage() {
                     {DEMO_ROWS.map((row) => (
                       <div
                         key={row.id}
-                        className="grid grid-cols-[1.2fr_0.9fr_0.6fr_0.6fr] items-center rounded-xl border border-black/[0.06] bg-black/[0.02] px-3 py-3 text-[12px] text-black"
+                        className="grid grid-cols-[1.2fr_0.9fr_0.6fr_0.6fr] items-center rounded-xl border border-black/[0.06] bg-black/[0.02] px-3 py-3 text-[12px] text-black hover:bg-black/[0.04]"
                       >
                         <div className="flex min-w-0 items-center gap-2">
                           <div className="grid h-7 w-7 place-items-center rounded-full bg-paper-dim text-black">
@@ -301,12 +302,18 @@ export default function LandingPage() {
                       <div className="h-2 w-4/6 rounded-full bg-black/10" />
                     </div>
                     <div className="mt-4 grid grid-cols-2 gap-2">
-                      <div className="pointer-events-none h-8 rounded-full bg-black text-center text-[12px] font-bold leading-8 text-white">
+                      <button
+                        onClick={handleEnterApp}
+                        className="h-8 rounded-full bg-black text-[12px] font-bold text-white"
+                      >
                         Review Draft
-                      </div>
-                      <div className="pointer-events-none h-8 rounded-full border border-black/10 bg-white text-center text-[12px] font-semibold leading-8">
+                      </button>
+                      <button
+                        onClick={handleEnterApp}
+                        className="h-8 rounded-full border border-black/10 bg-white text-[12px] font-semibold"
+                      >
                         Edit Draft
-                      </div>
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -468,8 +475,33 @@ export default function LandingPage() {
           ))}
         </div>
 
+        {/* Blog preview */}
+        <div className="mx-auto mt-16 max-w-[1000px]">
+          <div className="flex items-end justify-between gap-4">
+            <h3 className="text-xl font-extrabold tracking-tight">From the blog</h3>
+            <Link to="/blog" className="text-sm font-semibold text-brass-dark hover:underline">
+              View all guides →
+            </Link>
+          </div>
+          <div className="mt-6 grid gap-5 md:grid-cols-2">
+            {BLOG_POSTS.map((post) => (
+              <Link
+                key={post.slug}
+                to={`/blog/${post.slug}`}
+                className="rounded-2xl border border-black/10 bg-white p-5 transition hover:border-brass/50 hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)]"
+              >
+                <p className="text-[11px] font-bold uppercase tracking-widest text-brass-dark">
+                  {new Date(post.date).toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" })} · {post.readTime}
+                </p>
+                <p className="mt-2 text-base font-bold leading-snug text-ink-950">{post.title}</p>
+                <p className="mt-2 text-[13px] leading-relaxed text-black/60">{post.excerpt}</p>
+              </Link>
+            ))}
+          </div>
+        </div>
+
         {/* FAQ */}
-        <div className="mx-auto mt-16 max-w-[760px]">
+        <div id="faq" className="mx-auto mt-16 max-w-[760px]">
           <h3 className="text-center text-xl font-extrabold tracking-tight">Frequently asked questions</h3>
           <div className="mt-6 divide-y divide-black/10 overflow-hidden rounded-[16px] border border-black/10 bg-white">
             {FAQS.map((f, i) => (
@@ -511,7 +543,7 @@ export default function LandingPage() {
                   N
                 </div>
               </div>
-              <span className="text-lg font-extrabold tracking-tight">Notice<span className="text-brass">Desk</span></span>
+              <span className="text-lg font-extrabold tracking-tight">NoticeDesk</span>
             </div>
             <p className="mt-4 max-w-[320px] text-[13px] leading-[1.6] text-white/50">
               AI-powered GST and Income Tax notice drafting for Indian Chartered Accountants — you review and finalize every response.

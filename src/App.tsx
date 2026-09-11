@@ -15,6 +15,8 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import OnboardClient from "./pages/OnboardClient";
 import ClientDetail from "./pages/ClientDetail";
 import NoticePreview from "./pages/NoticePreview";
+import Blog from "./pages/Blog";
+import BlogPost from "./pages/BlogPost";
 
 export default function App() {
   return (
@@ -26,6 +28,8 @@ export default function App() {
       <Route path="/terms" element={<TermsOfService />} />
       <Route path="/login" element={<Login />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
+      <Route path="/blog" element={<Blog />} />
+      <Route path="/blog/:slug" element={<BlogPost />} />
 
       {/* Protected Pages */}
       <Route
