@@ -134,21 +134,6 @@ export default function LandingPage() {
           </nav>
 
           <div className="flex items-center gap-3 justify-self-end">
-            {session ? (
-              <Link
-                to="/app"
-                className="hidden h-9 items-center rounded-full bg-black px-4 text-[13px] font-semibold text-white md:inline-flex"
-              >
-                Dashboard
-              </Link>
-            ) : (
-              <button
-                onClick={() => navigate("/login")}
-                className="hidden h-9 items-center rounded-full bg-black px-4 text-[13px] font-semibold text-white md:inline-flex"
-              >
-                Sign in
-              </button>
-            )}
             <button
               onClick={handleEnterApp}
               className="flex h-9 items-center gap-1.5 rounded-full bg-brass px-5 text-[13px] font-bold text-black shadow-[0_4px_12px_rgba(255,199,0,0.35)] transition hover:brightness-105 active:scale-[0.98]"
