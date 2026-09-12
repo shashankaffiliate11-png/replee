@@ -20,11 +20,10 @@ export default function Settings() {
   const [referralStats, setReferralStats] = useState({ pending: 0, rewarded: 0, bonusDrafts: 0 });
   const [linkCopied, setLinkCopied] = useState(false);
 
-  // Gmail ingestion connection state
+  // Gmail ingestion connection state — registered automatically at login
+  // (see AuthContext.tsx / AuthCallback.tsx), never a manual step here.
   const [gmailConnectedEmail, setGmailConnectedEmail] = useState<string | null>(null);
   const [gmailLoading, setGmailLoading] = useState(true);
-  const [gmailConnecting, setGmailConnecting] = useState(false);
-  const [gmailBanner, setGmailBanner] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -88,17 +87,6 @@ export default function Settings() {
   useEffect(() => {
     if (!user) return;
 
-    // Reflect the redirect back from /api/gmail/oauth-callback
-    const params = new URLSearchParams(window.location.search);
-    const gmailStatus = params.get("gmail");
-    if (gmailStatus === "connected") {
-      setGmailBanner({ type: "success", message: "Gmail connected — new tax notices will now be detected automatically." });
-      window.history.replaceState({}, "", "/app/settings");
-    } else if (gmailStatus === "error") {
-      setGmailBanner({ type: "error", message: `Couldn't connect Gmail (${params.get("reason") || "unknown error"}). Please try again.` });
-      window.history.replaceState({}, "", "/app/settings");
-    }
-
     (async () => {
       const { data } = await (supabase.from("gmail_connections" as any) as any)
         .select("connected_email")
@@ -108,30 +96,6 @@ export default function Settings() {
       setGmailLoading(false);
     })();
   }, [user]);
-
-  async function handleConnectGmail() {
-    setGmailConnecting(true);
-    setGmailBanner(null);
-    try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData.session?.access_token;
-
-      const response = await fetch("/api/gmail/connect-url", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      const data = await response.json();
-
-      if (!response.ok || !data.url) {
-        throw new Error(data.error || "Failed to start Gmail connection.");
-      }
-
-      window.location.href = data.url;
-    } catch (err: any) {
-      setGmailBanner({ type: "error", message: err.message || "Failed to start Gmail connection." });
-      setGmailConnecting(false);
-    }
-  }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -194,42 +158,24 @@ export default function Settings() {
         <section className="border border-paper-line bg-white p-6">
           <h2 className="font-semibold text-ink-950">Automatic notice detection</h2>
           <p className="mt-1 text-sm text-ink-600">
-            Connect your Gmail inbox so NoticeDesk can automatically detect incoming GST/Income-Tax
-            notices and pre-fill drafts for you.
+            NoticeDesk watches the Gmail account you sign in with and
+            automatically detects incoming GST/Income-Tax notices — there's
+            nothing separate to connect.
           </p>
-
-          {gmailBanner && (
-            <div
-              className={`mt-4 p-3 text-xs rounded-md border ${
-                gmailBanner.type === "success"
-                  ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-                  : "bg-red-50 border-red-200 text-red-700"
-              }`}
-            >
-              {gmailBanner.message}
-            </div>
-          )}
 
           <div className="mt-4">
             {gmailLoading ? (
               <p className="text-sm text-ink-500">Checking connection…</p>
             ) : gmailConnectedEmail ? (
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-ink-700">
-                  Connected: <span className="font-medium">{gmailConnectedEmail}</span>
-                </p>
-                <button
-                  onClick={handleConnectGmail}
-                  disabled={gmailConnecting}
-                  className="text-sm font-medium text-brass-dark hover:text-brass-light underline disabled:opacity-50"
-                >
-                  {gmailConnecting ? "Reconnecting…" : "Reconnect"}
-                </button>
-              </div>
+              <p className="text-sm text-ink-700">
+                <span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-ok align-middle" />
+                Watching: <span className="font-medium">{gmailConnectedEmail}</span>
+              </p>
             ) : (
-              <button onClick={handleConnectGmail} disabled={gmailConnecting} className="btn-primary">
-                {gmailConnecting ? "Redirecting to Google…" : "Connect Gmail"}
-              </button>
+              <p className="text-sm text-ink-700">
+                <span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-warn align-middle" />
+                Not connected yet. Sign out and sign back in with Google to enable automatic detection.
+              </p>
             )}
           </div>
         </section>

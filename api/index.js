@@ -1,5 +1,4 @@
 import express from "express";
-import crypto from "crypto";
 import { google } from "googleapis";
 import pdfParse from "pdf-parse";
 import { GoogleGenerativeAI } from "@google/generative-ai";
@@ -42,9 +41,6 @@ function getSupabaseAnon() {
   return _supabaseAnon;
 }
 
-const APP_URL = process.env.APP_URL || "https://replee-three.vercel.app";
-const STATE_SECRET = process.env.STATE_SECRET || "";
-
 // ── Helpers ────────────────────────────────────────────────────────────
 
 function newOAuthClient() {
@@ -71,23 +67,6 @@ async function requireUser(req, res) {
     return null;
   }
   return data.user;
-}
-
-function signState(userId) {
-  const payload = JSON.stringify({ userId, ts: Date.now() });
-  const payloadB64 = Buffer.from(payload).toString("base64url");
-  const sig = crypto.createHmac("sha256", STATE_SECRET).update(payloadB64).digest("hex");
-  return `${payloadB64}.${sig}`;
-}
-
-function verifyState(state) {
-  const [payloadB64, sig] = String(state || "").split(".");
-  if (!payloadB64 || !sig) return null;
-  const expectedSig = crypto.createHmac("sha256", STATE_SECRET).update(payloadB64).digest("hex");
-  if (sig !== expectedSig) return null;
-  const payload = JSON.parse(Buffer.from(payloadB64, "base64url").toString("utf-8"));
-  if (Date.now() - payload.ts > 10 * 60 * 1000) return null;
-  return payload.userId;
 }
 
 function gmailClientForConnection(connection) {
@@ -123,79 +102,65 @@ async function registerWatchForConnection(connection) {
 }
 
 // ============================================================================
-// 1. START GMAIL CONNECTION
+// GMAIL CONNECTION — registered automatically at login, not a separate step.
+// The Google account used to sign in IS the notice-watching inbox: the
+// frontend calls this right after login with the Google tokens Supabase
+// attached to the session (see AuthContext.tsx's signInWithGoogle scopes and
+// AuthCallback.tsx). There is no independent "Connect Gmail" OAuth flow
+// anymore — a Gmail connection can only ever match the account someone is
+// signed in with.
 // ============================================================================
-app.post("/api/gmail/connect-url", async (req, res) => {
+app.post("/api/gmail/register-from-login", async (req, res) => {
   const user = await requireUser(req, res);
   if (!user) return;
 
-  const oauth2Client = newOAuthClient();
-  const url = oauth2Client.generateAuthUrl({
-    access_type: "offline",
-    prompt: "consent",
-    scope: ["https://www.googleapis.com/auth/gmail.readonly"],
-    state: signState(user.id),
-  });
+  const { access_token, refresh_token } = req.body || {};
 
-  return res.status(200).json({ url });
-});
+  if (!refresh_token) {
+    // Google only issues a refresh_token when access_type=offline +
+    // prompt=consent are used (see AuthContext.tsx) — if this is missing,
+    // something about the login request itself didn't ask for it properly.
+    return res.status(400).json({
+      error: "Google did not return Gmail access for this sign-in. Please sign in again.",
+    });
+  }
 
-// ============================================================================
-// 2. OAUTH CALLBACK
-// ============================================================================
-app.get("/api/gmail/oauth-callback", async (req, res) => {
   try {
-    const { code, state, error: googleError } = req.query;
-
-    if (googleError) {
-      return res.redirect(`${APP_URL}/app/settings?gmail=error&reason=${encodeURIComponent(googleError)}`);
-    }
-
-    const userId = verifyState(state);
-    if (!userId) {
-      return res.redirect(`${APP_URL}/app/settings?gmail=error&reason=invalid_state`);
-    }
-
     const oauth2Client = newOAuthClient();
-    const { tokens } = await oauth2Client.getToken(code);
-    oauth2Client.setCredentials(tokens);
-
-    if (!tokens.refresh_token) {
-      return res.redirect(`${APP_URL}/app/settings?gmail=error&reason=no_refresh_token`);
-    }
+    oauth2Client.setCredentials({ access_token, refresh_token });
 
     const gmail = google.gmail({ version: "v1", auth: oauth2Client });
     const profile = await gmail.users.getProfile({ userId: "me" });
 
     const { error: upsertError } = await getSupabaseAdmin().from("gmail_connections").upsert(
       {
-        user_id: userId,
+        user_id: user.id,
         connected_email: profile.data.emailAddress.toLowerCase(),
-        refresh_token: tokens.refresh_token,
-        access_token: tokens.access_token,
-        token_expiry: tokens.expiry_date ? new Date(tokens.expiry_date).toISOString() : null,
+        refresh_token,
+        access_token,
+        token_expiry: null,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "user_id" }
     );
 
     if (upsertError) {
-      console.error("[Gmail Connect] Failed to save connection:", upsertError.message);
-      return res.redirect(`${APP_URL}/app/settings?gmail=error&reason=save_failed`);
+      console.error("[Gmail Register] Failed to save connection:", upsertError.message);
+      return res.status(500).json({ error: "Failed to save Gmail connection." });
     }
 
     const { data: connection } = await getSupabaseAdmin()
       .from("gmail_connections")
       .select("*")
-      .eq("user_id", userId)
+      .eq("user_id", user.id)
       .single();
 
     await registerWatchForConnection(connection);
 
-    return res.redirect(`${APP_URL}/app/settings?gmail=connected`);
+    return res.status(200).json({ connected_email: profile.data.emailAddress.toLowerCase() });
   } catch (err) {
-    console.error("[Gmail OAuth Callback Error]:", err.message);
-    return res.redirect(`${APP_URL}/app/settings?gmail=error&reason=${encodeURIComponent(err.message)}`);
+    console.error("[Gmail Register Error]:", err.message);
+    return res.status(500).json({ error: err.message || "Failed to register Gmail connection." });
   }
 });
 

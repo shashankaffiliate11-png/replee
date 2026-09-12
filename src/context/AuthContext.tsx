@@ -35,7 +35,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function signInWithGoogle() {
     await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo },
+      options: {
+        redirectTo,
+        // Requesting Gmail read access as part of login itself — the same
+        // Google account used to sign in becomes the notice-watching inbox,
+        // so there's no separate "Connect Gmail" step anywhere in the app.
+        // access_type=offline + prompt=consent guarantee Google issues a
+        // refresh_token on every sign-in, which is required to keep the
+        // Gmail watch running after the short-lived access_token expires.
+        scopes: "https://www.googleapis.com/auth/gmail.readonly",
+        queryParams: {
+          access_type: "offline",
+          prompt: "consent",
+        },
+      },
     });
   }
 

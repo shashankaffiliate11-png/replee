@@ -33,6 +33,33 @@ export default function AuthCallback() {
       }
 
       const userId = retry.session.user.id;
+
+      // Register (or refresh) the Gmail connection using the Google tokens
+      // that came back attached to this login session — this is what
+      // replaces the old separate "Connect Gmail" step. It's fire-and-forget
+      // on failure: a hiccup here should never block someone from reaching
+      // the app, since they can always retry by signing in again.
+      const providerToken = (retry.session as any).provider_token;
+      const providerRefreshToken = (retry.session as any).provider_refresh_token;
+      if (providerRefreshToken) {
+        try {
+          await fetch("/api/gmail/register-from-login", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${retry.session.access_token}`,
+            },
+            body: JSON.stringify({
+              access_token: providerToken,
+              refresh_token: providerRefreshToken,
+            }),
+          });
+        } catch {
+          // Non-fatal — Settings will show "not connected yet" and a
+          // fresh sign-in will retry this.
+        }
+      }
+
       const { data: profile } = await supabase
         .from("profiles")
         .select("id, firm_name")
