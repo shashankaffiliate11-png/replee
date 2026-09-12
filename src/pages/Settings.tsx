@@ -24,6 +24,8 @@ export default function Settings() {
   // (see AuthContext.tsx / AuthCallback.tsx), never a manual step here.
   const [gmailConnectedEmail, setGmailConnectedEmail] = useState<string | null>(null);
   const [gmailLoading, setGmailLoading] = useState(true);
+  const [resyncing, setResyncing] = useState(false);
+  const [resyncResult, setResyncResult] = useState<{ ok: boolean; message: string } | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -96,6 +98,30 @@ export default function Settings() {
       setGmailLoading(false);
     })();
   }, [user]);
+
+  async function handleResync() {
+    if (!user) return;
+    setResyncing(true);
+    setResyncResult(null);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      const response = await fetch("/api/gmail/resync", {
+        method: "POST",
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setResyncResult({ ok: false, message: data.error || "Resync failed." });
+      } else {
+        setResyncResult({ ok: true, message: "Watch is active — notice detection is live." });
+      }
+    } catch (err: any) {
+      setResyncResult({ ok: false, message: err.message || "Resync failed." });
+    } finally {
+      setResyncing(false);
+    }
+  }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -176,6 +202,24 @@ export default function Settings() {
                 <span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-warn align-middle" />
                 Not connected yet. Sign out and sign back in with Google to enable automatic detection.
               </p>
+            )}
+
+            {gmailConnectedEmail && (
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={handleResync}
+                  disabled={resyncing}
+                  className="rounded border border-paper-line px-3 py-1.5 text-xs font-medium text-ink-700 hover:bg-paper-dim disabled:opacity-50"
+                >
+                  {resyncing ? "Checking…" : "Resync now"}
+                </button>
+                {resyncResult && (
+                  <p className={`mt-2 text-xs ${resyncResult.ok ? "text-ok" : "text-warn"}`}>
+                    {resyncResult.message}
+                  </p>
+                )}
+              </div>
             )}
           </div>
         </section>
