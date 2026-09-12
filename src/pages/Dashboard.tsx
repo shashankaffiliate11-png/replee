@@ -12,7 +12,7 @@ import AppShell from "../components/AppShell";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../lib/supabaseClient";
 import { getPlan } from "../lib/plans";
-import type { Notice, Profile, UsageCounter } from "../lib/database.types";
+import type { Profile, UsageCounter } from "../lib/database.types";
 
 function timeAgo(dateStr: string): string {
   const diffMs = Date.now() - new Date(dateStr).getTime();
@@ -29,7 +29,6 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [usage, setUsage] = useState<UsageCounter | null>(null);
-  const [manualDrafts, setManualDrafts] = useState<Notice[]>([]);
   const [automatedNotices, setAutomatedNotices] = useState<any[]>([]);
   const [counts, setCounts] = useState({ pending: 0, edited: 0, finalized: 0 });
   // Maps a notice's id to its 1-based chronological rank among ALL
@@ -53,7 +52,6 @@ export default function Dashboard() {
         const [
           { data: profileData },
           { data: usageData },
-          { data: manualRows },
           { data: clientRows },
           { count: pendingCount },
           { count: editedCount },
@@ -67,13 +65,6 @@ export default function Dashboard() {
             .eq("user_id", user!.id)
             .eq("period_month", periodMonth)
             .maybeSingle(),
-          supabase
-            .from("notices")
-            .select("*")
-            .eq("user_id", user!.id)
-            .neq("source" as any, "gmail")
-            .order("created_at", { ascending: false })
-            .limit(5),
           supabase.from("clients").select("*").eq("firm_id", user!.id).order("legal_name"),
           // Pending Notices — total count of notices that have landed via
           // the connected email inbox, regardless of current status.
@@ -109,7 +100,6 @@ export default function Dashboard() {
 
         setProfile(profileData);
         setUsage(usageData ?? { user_id: user!.id, period_month: periodMonth, notices_used: 0 });
-        setManualDrafts(manualRows ?? []);
         setClients(clientRows ?? []);
         setCounts({
           pending: pendingCount ?? 0,
@@ -125,7 +115,9 @@ export default function Dashboard() {
 
         const { data: sessionData } = await supabase.auth.getSession();
         const accessToken = sessionData.session?.access_token;
-        const response = await fetch("/api/notices?source=gmail", {
+        // No ?source= filter — this table shows manually drafted notices
+        // alongside Gmail-ingested ones, newest first.
+        const response = await fetch("/api/notices", {
           headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
         });
 

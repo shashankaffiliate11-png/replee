@@ -245,6 +245,15 @@ Respond now in the NOTICE_SUMMARY / DRAFT_RESPONSE format described in your inst
       ai_draft_response: cleanDraft,
       final_response: cleanDraft,
       status: "drafted",
+      source: "manual",
+      client_id: c.id ?? null,
+      // Carried over from the client's onboarding record so this row shows
+      // the same Firm/GST/PAN/Signatory columns as Gmail-ingested notices
+      // in the Dashboard's unified "Your Notice Inbox" table.
+      firm_name: c.legal_name || clientName,
+      gst_number: c.gstin || null,
+      pan_number: c.pan || null,
+      signatory_name: c.signatory_name || null,
     })
     .select("id")
     .single();
