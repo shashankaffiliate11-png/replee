@@ -250,7 +250,7 @@ export default function AppShell({ children }: AppShellProps) {
           </div>
         </header>
 
-        <main className="flex-1 p-4 lg:p-8">{children}</main>
+        <main className="flex-1 px-4 pb-4 pt-3 lg:px-8 lg:pb-8 lg:pt-4">{children}</main>
       </div>
 
       <ContactSupportModal

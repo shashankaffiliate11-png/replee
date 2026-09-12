@@ -148,7 +148,7 @@ export default function NewNotice() {
     <AppShell>
       <div className="max-w-7xl mx-auto">
         <h1 className="text-2xl font-semibold text-ink-950 mb-1">Draft New Response</h1>
-        <p className="text-sm text-ink-600 mb-6">Select a client and upload notice to generate automated response.</p>
+        <p className="text-sm text-ink-600 mb-4">Select a client and upload notice to generate automated response.</p>
 
         {error && (
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-700">
@@ -164,7 +164,7 @@ export default function NewNotice() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className={`grid grid-cols-1 gap-8 ${selectedClient ? "lg:grid-cols-2" : ""}`}>
           <div className="space-y-6">
             <div className="relative" ref={dropdownRef}>
               <label className="block text-xs font-semibold text-ink-900 uppercase tracking-wide mb-1">
@@ -308,7 +308,8 @@ export default function NewNotice() {
             </div>
           </div>
 
-          <div className="border border-paper-line bg-white p-6 rounded-lg shadow-sm h-fit">
+          {selectedClient && (
+            <div className="border border-paper-line bg-white p-6 rounded-lg shadow-sm h-fit">
             <h2 className="text-lg font-medium text-ink-900 mb-4">Client Details</h2>
             
             <div className="space-y-4 text-xs">
@@ -435,6 +436,7 @@ export default function NewNotice() {
               </div>
             </div>
           </div>
+          )}
         </div>
       </div>
 

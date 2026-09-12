@@ -38,7 +38,7 @@ export default function Blog() {
               onClick={handleEnterApp}
               className="flex h-9 items-center gap-1.5 rounded-full bg-brass px-5 text-[13px] font-bold text-black shadow-[0_4px_12px_rgba(255,199,0,0.35)] transition hover:brightness-105"
             >
-              Draft New Response <ArrowRight size={14} />
+              Get Started <ArrowRight size={14} />
             </button>
           </div>
         </div>

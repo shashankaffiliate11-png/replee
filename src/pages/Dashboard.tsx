@@ -2,12 +2,11 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   ShieldCheck,
-  Clock,
-  Users,
-  FileText,
   Eye,
   CheckCircle2,
   Sparkles,
+  Mail,
+  Pencil,
 } from "lucide-react";
 import AppShell from "../components/AppShell";
 import { useAuth } from "../context/AuthContext";
@@ -32,6 +31,7 @@ export default function Dashboard() {
   const [usage, setUsage] = useState<UsageCounter | null>(null);
   const [manualDrafts, setManualDrafts] = useState<Notice[]>([]);
   const [automatedNotices, setAutomatedNotices] = useState<any[]>([]);
+  const [counts, setCounts] = useState({ pending: 0, edited: 0, finalized: 0 });
 
   // Search & Selected Client State
   const [searchQuery, setSearchQuery] = useState("");
@@ -45,7 +45,15 @@ export default function Dashboard() {
 
     async function load() {
       try {
-        const [{ data: profileData }, { data: usageData }, { data: manualRows }, { data: clientRows }] = await Promise.all([
+        const [
+          { data: profileData },
+          { data: usageData },
+          { data: manualRows },
+          { data: clientRows },
+          { count: pendingCount },
+          { count: editedCount },
+          { count: finalizedCount },
+        ] = await Promise.all([
           supabase.from("profiles").select("*").eq("id", user!.id).maybeSingle(),
           supabase
             .from("usage_counters")
@@ -61,12 +69,37 @@ export default function Dashboard() {
             .order("created_at", { ascending: false })
             .limit(5),
           supabase.from("clients").select("*").eq("firm_id", user!.id).order("legal_name"),
+          // Pending Notices — total count of notices that have landed via
+          // the connected email inbox, regardless of current status.
+          (supabase.from("notices") as any)
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", user!.id)
+            .eq("source", "gmail"),
+          // Edited — notices currently in 'edited' status, which is set
+          // the moment "Save edits" is clicked in NoticeDetail.
+          supabase
+            .from("notices")
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", user!.id)
+            .eq("status", "edited"),
+          // Finalized — notices currently in 'finalized' status, set when
+          // "Mark as finalized" is clicked in NoticeDetail.
+          supabase
+            .from("notices")
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", user!.id)
+            .eq("status", "finalized"),
         ]);
 
         setProfile(profileData);
         setUsage(usageData ?? { user_id: user!.id, period_month: periodMonth, notices_used: 0 });
         setManualDrafts(manualRows ?? []);
         setClients(clientRows ?? []);
+        setCounts({
+          pending: pendingCount ?? 0,
+          edited: editedCount ?? 0,
+          finalized: finalizedCount ?? 0,
+        });
 
         const { data: sessionData } = await supabase.auth.getSession();
         const accessToken = sessionData.session?.access_token;
@@ -110,28 +143,27 @@ export default function Dashboard() {
   );
 
   const totalClients = clients.length;
-  const draftsThisMonth = used;
 
   const statCards = [
     {
-      label: "Total Clients",
-      value: loading ? "—" : String(totalClients),
-      sublabel: "Active clients on your account",
-      icon: Users,
+      label: "Pending Notices",
+      value: loading ? "—" : String(counts.pending),
+      sublabel: "Total notices received via connected email",
+      icon: Mail,
       tint: "bg-accent-blue-tint text-accent-blue",
     },
     {
-      label: "Drafts This Month",
-      value: loading ? "—" : String(draftsThisMonth),
-      sublabel: `Out of ${limit === "unlimited" ? "unlimited" : limit} allowed (${plan?.name || "current"} plan)`,
-      icon: FileText,
+      label: "Edited",
+      value: loading ? "—" : String(counts.edited),
+      sublabel: "Drafts with saved edits, awaiting finalization",
+      icon: Pencil,
       tint: "bg-accent-green-tint text-accent-green",
     },
     {
-      label: "Avg. Response Time",
-      value: "—",
-      sublabel: "Not tracked yet",
-      icon: Clock,
+      label: "Finalized",
+      value: loading ? "—" : String(counts.finalized),
+      sublabel: "Responses marked finalized",
+      icon: CheckCircle2,
       tint: "bg-accent-purple-tint text-accent-purple",
     },
     {
@@ -156,7 +188,7 @@ export default function Dashboard() {
       <div>
         {/* MAIN COLUMN */}
         <div>
-          <div className="mt-5 grid grid-cols-1 gap-4">
+          <div className="grid grid-cols-1 gap-4">
             <div className="relative w-1/2">
               <div className="flex gap-2">
                 <input
@@ -193,17 +225,17 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="mt-6 grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="mt-4 grid grid-cols-2 lg:grid-cols-4 gap-4">
             {statCards.map((s) => {
               const Icon = s.icon;
               return (
-                <div key={s.label} className="rounded-xl border border-paper-line bg-white p-4">
-                  <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${s.tint}`}>
-                    <Icon size={17} />
+                <div key={s.label} className="rounded-xl border border-paper-line bg-white p-3">
+                  <div className={`flex h-7 w-7 items-center justify-center rounded-lg ${s.tint}`}>
+                    <Icon size={14} />
                   </div>
-                  <p className="mt-3 text-xl font-semibold text-ink-950">{s.value}</p>
+                  <p className="mt-1.5 text-lg font-semibold text-ink-950">{s.value}</p>
                   <p className="text-xs font-medium text-ink-700">{s.label}</p>
-                  <p className="mt-1 text-[11px] text-ink-400">{s.sublabel}</p>
+                  <p className="mt-0.5 text-[11px] leading-tight text-ink-400">{s.sublabel}</p>
                 </div>
               );
             })}

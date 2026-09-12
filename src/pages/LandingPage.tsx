@@ -138,7 +138,7 @@ export default function LandingPage() {
               onClick={handleEnterApp}
               className="flex h-9 items-center gap-1.5 rounded-full bg-brass px-5 text-[13px] font-bold text-black shadow-[0_4px_12px_rgba(255,199,0,0.35)] transition hover:brightness-105 active:scale-[0.98]"
             >
-              Draft New Response <ArrowRight size={14} />
+              Get Started <ArrowRight size={14} />
             </button>
             <button
               onClick={() => setMobileNavOpen(!mobileNavOpen)}
@@ -285,12 +285,14 @@ export default function LandingPage() {
                       <div className="h-2 w-4/6 rounded-full bg-black/10" />
                     </div>
                     <div className="mt-4 grid grid-cols-2 gap-2">
-                      <div className="h-8 rounded-full bg-black text-center text-[12px] font-bold leading-8 text-white">
+'''
+{/*                      <div className="h-8 rounded-full bg-black text-center text-[12px] font-bold leading-8 text-white">
                         Review Draft
                       </div>
                       <div className="h-8 rounded-full border border-black/10 bg-white text-center text-[12px] font-semibold leading-8">
                         Edit Draft
                       </div>
+*/}
                     </div>
                   </div>
                 </div>
