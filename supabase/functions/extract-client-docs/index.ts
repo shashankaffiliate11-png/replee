@@ -43,7 +43,7 @@ Deno.serve(async (req) => {
     // "gemini-3.8-flash" is not a real model name — every extraction call
     // has been failing outright on this line. gemini-2.5-flash is the
     // correct current model, matching what's used elsewhere in this app.
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-3.8-flash" });
 
     const prompt = `Extract client onboarding details from this document (GST Certificate, Identity Document, PAN, or Partnership Deed). 
     Return strictly valid JSON without markdown wrapping:
