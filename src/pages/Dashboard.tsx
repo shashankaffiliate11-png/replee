@@ -248,8 +248,7 @@ export default function Dashboard() {
                   <Sparkles size={17} />
                 </div>
                 <div>
-                  <h2 className="text-sm font-semibold text-ink-950">Automated Email Extraction & Processing</h2>
-                  <p className="text-xs text-ink-500">Extracting data from GST &amp; Income Tax notices and preparing structured information.</p>
+                  <h2 className="text-sm font-semibold text-ink-950">Your Notice Inbox</h2>
                 </div>
               </div>
               <div className="flex items-center gap-3">

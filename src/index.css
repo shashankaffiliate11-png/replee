@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+html {
+  font-size: 80%;
+}
 @layer base {
   html {
     scroll-behavior: smooth;
