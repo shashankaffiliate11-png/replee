@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowRight,
@@ -18,7 +18,6 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { PLANS } from "../lib/plans";
 import { BLOG_POSTS } from "../lib/blogPosts";
-import AuthModal from "../components/AuthModal";
 
 const FEATURES = [
   {
@@ -102,23 +101,12 @@ const DEMO_ROWS = [
 export default function LandingPage() {
   const { session } = useAuth();
   const navigate = useNavigate();
-  const [authOpen, setAuthOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
-  useEffect(() => {
-    const ref = new URLSearchParams(window.location.search).get("ref");
-    if (ref) {
-      // Stored, not applied yet — Onboarding.tsx reads this when the
-      // profile row is actually created, which is the real "new user"
-      // moment (OAuth sign-in alone doesn't mean a new account).
-      sessionStorage.setItem("nd_ref", ref);
-    }
-  }, []);
-
   function handleEnterApp() {
     if (session) navigate("/app");
-    else setAuthOpen(true);
+    else navigate("/login");
   }
 
   return (
@@ -155,10 +143,10 @@ export default function LandingPage() {
               </Link>
             ) : (
               <button
-                onClick={() => setAuthOpen(true)}
+                onClick={() => navigate("/login")}
                 className="hidden h-9 items-center rounded-full bg-black px-4 text-[13px] font-semibold text-white md:inline-flex"
               >
-                Sign in 
+                Sign in
               </button>
             )}
             <button
@@ -243,15 +231,15 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Live extraction mockup */}
-          <div className="relative">
+          {/* Live extraction mockup — purely illustrative, not interactive */}
+          <div className="relative pointer-events-none select-none">
             <div className="absolute -inset-6 -z-10 rounded-[32px] bg-brass/20 blur-[40px]" />
             <div className="rounded-[24px] border border-black/10 bg-white p-3 shadow-[0_20px_60px_rgba(0,0,0,0.12)] lg:p-4">
               <div className="overflow-hidden rounded-[16px] border border-black/10 bg-white">
                 <div className="flex h-11 items-center justify-between border-b border-black/10 px-4">
                   <div className="flex items-center gap-2 text-[12px] font-medium text-black/70">
                     <div className="grid h-6 w-6 place-items-center rounded-full bg-brass font-bold text-black">N</div>
-                    Automated Notice Extraction
+                    Automated Email Extraction
                     <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
                       LIVE
                     </span>
@@ -312,18 +300,12 @@ export default function LandingPage() {
                       <div className="h-2 w-4/6 rounded-full bg-black/10" />
                     </div>
                     <div className="mt-4 grid grid-cols-2 gap-2">
-                      <button
-                        onClick={handleEnterApp}
-                        className="h-8 rounded-full bg-black text-[12px] font-bold text-white"
-                      >
+                      <div className="h-8 rounded-full bg-black text-center text-[12px] font-bold leading-8 text-white">
                         Review Draft
-                      </button>
-                      <button
-                        onClick={handleEnterApp}
-                        className="h-8 rounded-full border border-black/10 bg-white text-[12px] font-semibold"
-                      >
+                      </div>
+                      <div className="h-8 rounded-full border border-black/10 bg-white text-center text-[12px] font-semibold leading-8">
                         Edit Draft
-                      </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -588,8 +570,6 @@ export default function LandingPage() {
           © {new Date().getFullYear()} NoticeDesk. Not a substitute for professional judgment — every draft requires your review before filing.
         </div>
       </footer>
-
-      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
     </div>
   );
 }

@@ -4,12 +4,10 @@ import { useAuth } from "../context/AuthContext";
 import { supabase } from "../lib/supabaseClient";
 import { PLANS, PLAN_CARD_THEME, type PlanDefinition } from "../lib/plans";
 import { openRazorpayCheckout } from "../lib/razorpay";
-import AuthModal from "../components/AuthModal";
 
 export default function PricingPage() {
   const { session, user } = useAuth();
   const navigate = useNavigate();
-  const [authOpen, setAuthOpen] = useState(false);
   const [processingPlan, setProcessingPlan] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [justPaid, setJustPaid] = useState(false);
@@ -37,7 +35,7 @@ export default function PricingPage() {
     const currentSession = sessionData?.session;
 
     if (!currentSession) {
-      setAuthOpen(true);
+      navigate("/login");
       return;
     }
 
@@ -107,7 +105,7 @@ export default function PricingPage() {
           {session ? (
             <Link to="/app" className="btn-primary py-2.5">Open app</Link>
           ) : (
-            <button onClick={() => setAuthOpen(true)} className="btn-primary py-2.5">Sign in</button>
+            <button onClick={() => navigate("/login")} className="btn-primary py-2.5">Sign in</button>
           )}
         </div>
       </header>
@@ -184,8 +182,6 @@ export default function PricingPage() {
           </div>
         </div>
       </footer>
-
-      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
     </div>
   );
 }
