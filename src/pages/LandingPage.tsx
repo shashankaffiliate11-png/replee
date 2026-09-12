@@ -120,7 +120,9 @@ export default function LandingPage() {
                 N
               </div>
             </div>
-            <span className="text-lg font-extrabold tracking-tight">NoticeDesk</span>
+            <span className="text-lg font-extrabold tracking-tight">
+              Notice<span className="text-brass">Desk</span>
+            </span>
             <span className="ml-1 hidden rounded-full bg-black px-2 py-1 text-[10px] font-bold tracking-widest text-white md:inline-flex">
               CA TOOL
             </span>
