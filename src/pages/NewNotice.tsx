@@ -29,7 +29,7 @@ export default function NewNotice() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const [noticeType, setNoticeType] = useState("GST ASMT-10 (Scrutiny of returns)");
+  const [noticeType, setNoticeType] = useState("");
   const [inputMode, setInputMode] = useState<"upload" | "paste">("upload");
   const [file, setFile] = useState<File | null>(null);
   const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
@@ -84,9 +84,20 @@ export default function NewNotice() {
 
   const isPreviewAvailable = Boolean(file || (inputMode === "paste" && pastedText.trim().length > 0));
 
+  // Generate Draft stays disabled until all three are true: a client is
+  // selected, a notice type is explicitly chosen, and either a file is
+  // attached or text has been pasted.
+  const hasNoticeContent = inputMode === "upload" ? Boolean(file) : pastedText.trim().length > 0;
+  const canGenerate = Boolean(selectedClient) && Boolean(noticeType) && hasNoticeContent;
+
   const handleGenerateDraft = async () => {
     if (!selectedClient) {
       setError("Please search and select a client first.");
+      return;
+    }
+
+    if (!noticeType) {
+      setError("Please select a notice type.");
       return;
     }
 
@@ -146,7 +157,7 @@ export default function NewNotice() {
 
   return (
     <AppShell>
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-7xl mx-auto -mt-4">
         <h1 className="text-2xl font-semibold text-ink-950 mb-1">Draft New Response</h1>
         <p className="text-sm text-ink-600 mb-4">Select a client and upload notice to generate automated response.</p>
 
@@ -164,7 +175,9 @@ export default function NewNotice() {
           </div>
         )}
 
-        <div className={`grid grid-cols-1 gap-8 ${selectedClient ? "lg:grid-cols-2" : ""}`}>
+        {/* Fixed 50/50 layout from first load — right column starts blank
+            and only fills in once a client is selected. */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
           <div className="space-y-6">
             <div className="relative" ref={dropdownRef}>
               <label className="block text-xs font-semibold text-ink-900 uppercase tracking-wide mb-1">
@@ -219,6 +232,9 @@ export default function NewNotice() {
                 value={noticeType}
                 onChange={(e) => setNoticeType(e.target.value)}
               >
+                <option value="" disabled>
+                  Select a notice type...
+                </option>
                 <option value="GST ASMT-10 (Scrutiny of returns)">GST ASMT-10 (Scrutiny of returns)</option>
                 <option value="GST DRC-01 (Show Cause Notice)">GST DRC-01 (Show Cause Notice)</option>
                 <option value="Income Tax Sec 148 (Reassessment)">Income Tax Sec 148 (Reassessment)</option>
@@ -299,144 +315,157 @@ export default function NewNotice() {
 
               <button
                 type="button"
-                disabled={generating}
+                disabled={generating || !canGenerate}
                 onClick={handleGenerateDraft}
-                className="bg-amber-500 hover:bg-amber-600 text-white font-medium px-6 py-2 rounded-md text-xs transition-colors shadow-sm disabled:opacity-50"
+                title={
+                  !canGenerate
+                    ? "Select a client, choose a notice type, and attach a file or paste text to continue"
+                    : undefined
+                }
+                className={`font-medium px-6 py-2 rounded-md text-xs transition-colors shadow-sm ${
+                  canGenerate && !generating
+                    ? "bg-amber-500 hover:bg-amber-600 text-white cursor-pointer"
+                    : "bg-paper-line text-ink-400 cursor-not-allowed opacity-70"
+                }`}
               >
                 {generating ? "Generating Draft..." : "Generate draft"}
               </button>
             </div>
           </div>
 
-          {selectedClient && (
-            <div className="border border-paper-line bg-white p-6 rounded-lg shadow-sm h-fit">
-            <h2 className="text-lg font-medium text-ink-900 mb-4">Client Details</h2>
-            
-            <div className="space-y-4 text-xs">
-              <div>
-                <label className="block font-semibold text-ink-500 uppercase tracking-wide mb-1">LEGAL NAME *</label>
-                <input
-                  type="text"
-                  readOnly
-                  className="input w-full bg-paper-dim cursor-not-allowed"
-                  value={selectedClient?.legal_name || ""}
-                  placeholder="ABC Traders Pvt Ltd"
-                />
-              </div>
+          {/* Right column: always present so the layout is a fixed 50/50
+              split from first load. Blank until a client is selected. */}
+          <div>
+            {selectedClient && (
+              <div className="border border-paper-line bg-white p-6 rounded-lg shadow-sm h-fit">
+                <h2 className="text-lg font-medium text-ink-900 mb-4">Client Details</h2>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block font-semibold text-ink-500 uppercase tracking-wide mb-1">TRADE NAME</label>
-                  <input
-                    type="text"
-                    readOnly
-                    className="input w-full bg-paper-dim cursor-not-allowed"
-                    value={selectedClient?.trade_name || ""}
-                    placeholder="ABC Traders"
-                  />
+                <div className="space-y-4 text-xs">
+                  <div>
+                    <label className="block font-semibold text-ink-500 uppercase tracking-wide mb-1">LEGAL NAME *</label>
+                    <input
+                      type="text"
+                      readOnly
+                      className="input w-full bg-paper-dim cursor-not-allowed"
+                      value={selectedClient?.legal_name || ""}
+                      placeholder="ABC Traders Pvt Ltd"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block font-semibold text-ink-500 uppercase tracking-wide mb-1">TRADE NAME</label>
+                      <input
+                        type="text"
+                        readOnly
+                        className="input w-full bg-paper-dim cursor-not-allowed"
+                        value={selectedClient?.trade_name || ""}
+                        placeholder="ABC Traders"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-ink-500 uppercase tracking-wide mb-1">PAN</label>
+                      <input
+                        type="text"
+                        readOnly
+                        className="input w-full bg-paper-dim cursor-not-allowed"
+                        value={selectedClient?.pan || ""}
+                        placeholder="ABCDE1234F"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-ink-500 uppercase tracking-wide mb-1">ENTITY TYPE</label>
+                    <input
+                      type="text"
+                      readOnly
+                      className="input w-full bg-paper-dim cursor-not-allowed"
+                      value={selectedClient?.entity_type || ""}
+                      placeholder="Private Limited / Partnership / Proprietorship"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-ink-500 uppercase tracking-wide mb-1">REGISTERED ADDRESS</label>
+                    <textarea
+                      readOnly
+                      className="input w-full bg-paper-dim min-h-[60px] cursor-not-allowed"
+                      value={selectedClient?.registered_address || ""}
+                      placeholder="Full address"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block font-semibold text-ink-500 uppercase tracking-wide mb-1">STATE</label>
+                      <input
+                        type="text"
+                        readOnly
+                        className="input w-full bg-paper-dim cursor-not-allowed"
+                        value={selectedClient?.state || ""}
+                        placeholder="Maharashtra"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-ink-500 uppercase tracking-wide mb-1">PINCODE</label>
+                      <input
+                        type="text"
+                        readOnly
+                        className="input w-full bg-paper-dim cursor-not-allowed"
+                        value={selectedClient?.pincode || ""}
+                        placeholder="400001"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block font-semibold text-ink-500 uppercase tracking-wide mb-1">SIGNATORY NAME</label>
+                      <input
+                        type="text"
+                        readOnly
+                        className="input w-full bg-paper-dim cursor-not-allowed"
+                        value={selectedClient?.signatory_name || ""}
+                        placeholder="Authorized person name"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-ink-500 uppercase tracking-wide mb-1">SIGNATORY DESIGNATION</label>
+                      <input
+                        type="text"
+                        readOnly
+                        className="input w-full bg-paper-dim cursor-not-allowed"
+                        value={selectedClient?.signatory_designation || ""}
+                        placeholder="Director / Partner"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-ink-500 uppercase tracking-wide mb-1">SIGNATORY CONTACT</label>
+                    <input
+                      type="text"
+                      readOnly
+                      className="input w-full bg-paper-dim cursor-not-allowed"
+                      value={selectedClient?.signatory_contact || ""}
+                      placeholder="Email or phone number"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-ink-500 uppercase tracking-wide mb-1">NOTES</label>
+                    <textarea
+                      readOnly
+                      className="input w-full bg-paper-dim min-h-[50px] cursor-not-allowed"
+                      value={selectedClient?.notes || ""}
+                      placeholder="Additional notes about client..."
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block font-semibold text-ink-500 uppercase tracking-wide mb-1">PAN</label>
-                  <input
-                    type="text"
-                    readOnly
-                    className="input w-full bg-paper-dim cursor-not-allowed"
-                    value={selectedClient?.pan || ""}
-                    placeholder="ABCDE1234F"
-                  />
-                </div>
               </div>
-
-              <div>
-                <label className="block font-semibold text-ink-500 uppercase tracking-wide mb-1">ENTITY TYPE</label>
-                <input
-                  type="text"
-                  readOnly
-                  className="input w-full bg-paper-dim cursor-not-allowed"
-                  value={selectedClient?.entity_type || ""}
-                  placeholder="Private Limited / Partnership / Proprietorship"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-ink-500 uppercase tracking-wide mb-1">REGISTERED ADDRESS</label>
-                <textarea
-                  readOnly
-                  className="input w-full bg-paper-dim min-h-[60px] cursor-not-allowed"
-                  value={selectedClient?.registered_address || ""}
-                  placeholder="Full address"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block font-semibold text-ink-500 uppercase tracking-wide mb-1">STATE</label>
-                  <input
-                    type="text"
-                    readOnly
-                    className="input w-full bg-paper-dim cursor-not-allowed"
-                    value={selectedClient?.state || ""}
-                    placeholder="Maharashtra"
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold text-ink-500 uppercase tracking-wide mb-1">PINCODE</label>
-                  <input
-                    type="text"
-                    readOnly
-                    className="input w-full bg-paper-dim cursor-not-allowed"
-                    value={selectedClient?.pincode || ""}
-                    placeholder="400001"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block font-semibold text-ink-500 uppercase tracking-wide mb-1">SIGNATORY NAME</label>
-                  <input
-                    type="text"
-                    readOnly
-                    className="input w-full bg-paper-dim cursor-not-allowed"
-                    value={selectedClient?.signatory_name || ""}
-                    placeholder="Authorized person name"
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold text-ink-500 uppercase tracking-wide mb-1">SIGNATORY DESIGNATION</label>
-                  <input
-                    type="text"
-                    readOnly
-                    className="input w-full bg-paper-dim cursor-not-allowed"
-                    value={selectedClient?.signatory_designation || ""}
-                    placeholder="Director / Partner"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-ink-500 uppercase tracking-wide mb-1">SIGNATORY CONTACT</label>
-                <input
-                  type="text"
-                  readOnly
-                  className="input w-full bg-paper-dim cursor-not-allowed"
-                  value={selectedClient?.signatory_contact || ""}
-                  placeholder="Email or phone number"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-ink-500 uppercase tracking-wide mb-1">NOTES</label>
-                <textarea
-                  readOnly
-                  className="input w-full bg-paper-dim min-h-[50px] cursor-not-allowed"
-                  value={selectedClient?.notes || ""}
-                  placeholder="Additional notes about client..."
-                />
-              </div>
-            </div>
+            )}
           </div>
-          )}
         </div>
       </div>
 
