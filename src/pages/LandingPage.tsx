@@ -120,7 +120,7 @@ export default function LandingPage() {
                 N
               </div>
             </div>
-            <span className="text-lg font-extrabold tracking-tight">
+            <span className="text-xl font-extrabold tracking-tight">
               Notice<span style={{ color: "#FFC700" }}>Desk</span>
             </span>
             <span className="ml-1 hidden rounded-full bg-black px-2 py-1 text-[10px] font-bold tracking-widest text-white md:inline-flex">
