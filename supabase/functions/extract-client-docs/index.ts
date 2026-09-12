@@ -39,11 +39,11 @@ Deno.serve(async (req) => {
     const cleanBase64 = base64File.includes(",") ? base64File.split(",")[1] : base64File;
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    // Updated to gemini-1.5-flash-latest to target active endpoints
-    // "gemini-3.8-flash" is not a real model name — every extraction call
-    // has been failing outright on this line. gemini-2.5-flash is the
-    // correct current model, matching what's used elsewhere in this app.
-    const model = genAI.getGenerativeModel({ model: "gemini-3.8-flash" });
+    // gemini-3.8-flash does not exist as a model name, and gemini-1.5-flash
+    // was fully retired by Google — both would 404 on every single call.
+    // gemini-2.5-flash is the correct, currently-active model, matching
+    // what's used elsewhere in this app (draft-notice, the Gmail webhook).
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const prompt = `Extract client onboarding details from this document (GST Certificate, Identity Document, PAN, or Partnership Deed). 
     Return strictly valid JSON without markdown wrapping:
