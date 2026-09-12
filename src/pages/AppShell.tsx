@@ -13,7 +13,7 @@ import {
   Menu,
   X,
 } from "lucide-react";
-import ContactSupportModal from "./ContactSupportModal";
+import ContactSupportModal from "../components/ContactSupportModal";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../lib/supabaseClient";
 import { getPlan } from "../lib/plans";
