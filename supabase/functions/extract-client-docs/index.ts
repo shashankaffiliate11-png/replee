@@ -43,7 +43,7 @@ Deno.serve(async (req) => {
     // was fully retired by Google — both would 404 on every single call.
     // gemini-2.5-flash is the correct, currently-active model, matching
     // what's used elsewhere in this app (draft-notice, the Gmail webhook).
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-3.8-flash" });
 
     const prompt = `Extract client onboarding details from this document (GST Certificate, Identity Document, PAN, or Partnership Deed). 
     Return strictly valid JSON without markdown wrapping:
