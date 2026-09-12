@@ -32,6 +32,11 @@ export default function Dashboard() {
   const [manualDrafts, setManualDrafts] = useState<Notice[]>([]);
   const [automatedNotices, setAutomatedNotices] = useState<any[]>([]);
   const [counts, setCounts] = useState({ pending: 0, edited: 0, finalized: 0 });
+  // Maps a notice's id to its 1-based chronological rank among ALL
+  // responses (manual + auto-generated combined) created this billing
+  // period, oldest first. Used to decide whether a given row's Preview is
+  // still within the plan's combined limit.
+  const [combinedRankById, setCombinedRankById] = useState<Record<string, number>>({});
 
   // Search & Selected Client State
   const [searchQuery, setSearchQuery] = useState("");
@@ -53,6 +58,7 @@ export default function Dashboard() {
           { count: pendingCount },
           { count: editedCount },
           { count: finalizedCount },
+          { data: combinedPeriodRows },
         ] = await Promise.all([
           supabase.from("profiles").select("*").eq("id", user!.id).maybeSingle(),
           supabase
@@ -89,6 +95,16 @@ export default function Dashboard() {
             .select("id", { count: "exact", head: true })
             .eq("user_id", user!.id)
             .eq("status", "finalized"),
+          // Every response (manual + auto-generated, any status) created
+          // this billing period, oldest first — this is what "combined
+          // manual plus auto generations" gets counted against for the
+          // Free/Starter Preview-vs-Upgrade cutoff below.
+          supabase
+            .from("notices")
+            .select("id, created_at")
+            .eq("user_id", user!.id)
+            .gte("created_at", periodMonth)
+            .order("created_at", { ascending: true }),
         ]);
 
         setProfile(profileData);
@@ -100,6 +116,12 @@ export default function Dashboard() {
           edited: editedCount ?? 0,
           finalized: finalizedCount ?? 0,
         });
+
+        const rankById: Record<string, number> = {};
+        (combinedPeriodRows ?? []).forEach((row: { id: string }, idx: number) => {
+          rankById[row.id] = idx + 1; // 1-based, oldest first
+        });
+        setCombinedRankById(rankById);
 
         const { data: sessionData } = await supabase.auth.getSession();
         const accessToken = sessionData.session?.access_token;
@@ -135,6 +157,17 @@ export default function Dashboard() {
       ? "unlimited"
       : (plan?.noticesPerMonth ?? 3) + bonusDrafts;
   const limitReached = limit !== "unlimited" && used >= limit;
+
+  // Whether THIS specific row's Preview should still work, based on its
+  // rank among all manual+auto responses created this period. Unlimited
+  // plans always preview; Free/Starter only preview up to their combined
+  // limit (oldest first), then show Upgrade Plan instead.
+  function canPreviewRow(noticeId: string): boolean {
+    if (limit === "unlimited") return true;
+    const rank = combinedRankById[noticeId];
+    if (!rank) return true; // rank not resolved yet (still loading) — don't block
+    return rank <= (limit as number);
+  }
 
   const filteredClients = clients.filter((c) =>
     c.legal_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -305,12 +338,21 @@ export default function Dashboard() {
                             </span>
                           </td>
                           <td className="p-3">
-                            <Link
-                              to={`/app/notices/${notice.id}`}
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-paper-line px-3 py-1.5 text-xs font-medium text-ink-800 hover:bg-paper-dim"
-                            >
-                              <Eye size={13} /> Preview
-                            </Link>
+                            {canPreviewRow(notice.id) ? (
+                              <Link
+                                to={`/app/notices/${notice.id}`}
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-paper-line px-3 py-1.5 text-xs font-medium text-ink-800 hover:bg-paper-dim"
+                              >
+                                <Eye size={13} /> Preview
+                              </Link>
+                            ) : (
+                              <Link
+                                to="/pricing"
+                                className="inline-flex items-center gap-1.5 rounded-lg bg-brass px-3 py-1.5 text-xs font-semibold text-white hover:bg-brass-dark"
+                              >
+                                Upgrade Plan
+                              </Link>
+                            )}
                           </td>
                           <td className="p-3">
                             <span className={`inline-block rounded-full px-2.5 py-1 text-xs font-medium ${pill.cls}`}>
