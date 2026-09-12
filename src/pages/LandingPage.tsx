@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowRight,
@@ -103,6 +103,14 @@ export default function LandingPage() {
   const navigate = useNavigate();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+
+  // Safety net: if a session is already active when this page loads (e.g.
+  // the OAuth redirect landed here instead of /auth/callback), send the
+  // person straight into the app instead of leaving them on the marketing
+  // page until they click a CTA.
+  useEffect(() => {
+    if (session) navigate("/app", { replace: true });
+  }, [session, navigate]);
 
   function handleEnterApp() {
     if (session) navigate("/app");

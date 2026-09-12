@@ -1,5 +1,5 @@
 import { ReactNode, useEffect, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Home,
   FilePenLine,
@@ -26,6 +26,7 @@ interface AppShellProps {
 export default function AppShell({ children }: AppShellProps) {
   const { user, signOut } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [usage, setUsage] = useState<UsageCounter | null>(null);
@@ -163,7 +164,7 @@ export default function AppShell({ children }: AppShellProps) {
             </p>
             <p className="mt-0.5 truncate text-ink-500">{user?.email}</p>
             <button
-              onClick={() => signOut()}
+              onClick={async () => { await signOut(); navigate("/"); }}
               className="mt-2 flex items-center gap-1.5 text-ink-500 hover:text-warn"
             >
               <LogOut size={14} /> Sign out
@@ -239,7 +240,7 @@ export default function AppShell({ children }: AppShellProps) {
                     Settings
                   </Link>
                   <button
-                    onClick={() => signOut()}
+                    onClick={async () => { await signOut(); navigate("/"); }}
                     className="block w-full px-3 py-2 text-left text-sm text-warn hover:bg-paper-dim"
                   >
                     Sign out
