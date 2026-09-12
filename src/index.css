@@ -2,9 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-html {
-  font-size: 80%;
-}
 @layer base {
   html {
     scroll-behavior: smooth;
@@ -16,7 +13,7 @@ html {
     font-family: "Source Serif 4", Georgia, serif;
   }
   :focus-visible {
-    outline: 2px solid #A9762F;
+    outline: 2px solid #F5A623;
     outline-offset: 2px;
   }
   @media (prefers-reduced-motion: reduce) {
@@ -39,15 +36,5 @@ html {
   }
   .input {
     @apply w-full rounded-sm border border-ink-900/15 bg-white px-3.5 py-2.5 text-sm text-ink-950 placeholder:text-ink-400 focus:border-brass focus:outline-none;
-  }
-}
-
-/* Force small text utility classes to scale up to text-base and use text-ink-700 color */
-@layer utilities {
-  .text-xs,
-  .text-sm {
-    font-size: 1rem !important; /* Matches default body text size (16px) */
-    line-height: 1.5rem !important;
-    color: #334155 !important; /* Equivalent to text-ink-700 */
   }
 }
