@@ -43,7 +43,7 @@ export default function AuthCallback() {
       const providerRefreshToken = (retry.session as any).provider_refresh_token;
       if (providerRefreshToken) {
         try {
-          await fetch("/api/gmail/register-from-login", {
+          const registerRes = await fetch("/api/gmail/register-from-login", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -54,10 +54,17 @@ export default function AuthCallback() {
               refresh_token: providerRefreshToken,
             }),
           });
-        } catch {
-          // Non-fatal — Settings will show "not connected yet" and a
-          // fresh sign-in will retry this.
+          if (!registerRes.ok) {
+            const errBody = await registerRes.json().catch(() => ({}));
+            console.error("[Gmail Registration Failed]", registerRes.status, errBody.error);
+          }
+        } catch (err) {
+          console.error("[Gmail Registration Failed] network error:", err);
         }
+      } else {
+        console.warn(
+          "[Gmail Registration Skipped] Google did not return a refresh_token on this login — Gmail detection will not be enabled for this session."
+        );
       }
 
       const { data: profile } = await supabase
