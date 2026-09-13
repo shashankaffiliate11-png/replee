@@ -3,21 +3,7 @@ import AppShell from "../components/AppShell";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate, Link } from "react-router-dom";
-
-interface ClientRecord {
-  id: string;
-  legal_name: string;
-  trade_name?: string;
-  pan?: string;
-  entity_type?: string;
-  registered_address?: string;
-  state?: string;
-  pincode?: string;
-  signatory_name?: string;
-  signatory_designation?: string;
-  signatory_contact?: string;
-  notes?: string;
-}
+import type { ClientRecord } from "../components/ClientSearch";
 
 export default function NewNotice() {
   const { user } = useAuth();
@@ -56,7 +42,7 @@ export default function NewNotice() {
         let query = (supabase.from("clients" as any) as any).select("*").eq("firm_id", user.id);
         if (searchQuery.trim().length > 0) {
           query = query.or(
-            `legal_name.ilike.%${searchQuery}%,trade_name.ilike.%${searchQuery}%,signatory_name.ilike.%${searchQuery}%`
+            `legal_name.ilike.%${searchQuery}%,gstin.ilike.%${searchQuery}%,trade_name.ilike.%${searchQuery}%,pan.ilike.%${searchQuery}%,signatory_name.ilike.%${searchQuery}%`
           );
         }
         const { data, error: dbErr } = await query.limit(10);
@@ -209,8 +195,12 @@ export default function NewNotice() {
                         }}
                       >
                         <div className="font-medium">{client.legal_name}</div>
-                        {client.trade_name && (
-                          <div className="text-xs text-ink-500">Trade: {client.trade_name} | PAN: {client.pan || 'N/A'}</div>
+                        {(client.trade_name || client.gstin) && (
+                          <div className="text-xs text-ink-500">
+                            {[client.trade_name && `Trade: ${client.trade_name}`, client.gstin, `PAN: ${client.pan || "N/A"}`]
+                              .filter(Boolean)
+                              .join(" | ")}
+                          </div>
                         )}
                       </div>
                     ))
@@ -349,6 +339,17 @@ export default function NewNotice() {
                       className="input w-full bg-paper-dim cursor-not-allowed"
                       value={selectedClient?.legal_name || ""}
                       placeholder="ABC Traders Pvt Ltd"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-ink-500 uppercase tracking-wide mb-1">GST NUMBER</label>
+                    <input
+                      type="text"
+                      readOnly
+                      className="input w-full bg-paper-dim cursor-not-allowed"
+                      value={selectedClient?.gstin || ""}
+                      placeholder="27ABCDE1234F1Z5"
                     />
                   </div>
 

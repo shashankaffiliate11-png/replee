@@ -4,6 +4,7 @@ import { supabase } from "../lib/supabaseClient";
 export type ClientRecord = {
   id: string;
   legal_name: string;
+  gstin: string | null;
   trade_name: string | null;
   pan: string | null;
   entity_type: string | null;
@@ -16,15 +17,13 @@ export type ClientRecord = {
   notes: string | null;
 };
 
-// Searches across every field the clients table actually has today:
-// legal name, trade name, PAN, entity type, address, state, pincode,
-// signatory name, and signatory contact (which often holds a phone or
-// email, since there's no dedicated column for either yet). GSTIN, a
-// dedicated email column, and a dedicated mobile column don't exist in
-// the schema yet — searching for those specifically won't surface a
-// client based on that alone until those fields are added.
+// Searches across every field the clients table has: legal name, GSTIN,
+// trade name, PAN, entity type, address, state, pincode, signatory name,
+// and signatory contact (which often holds a phone or email, since there's
+// no dedicated column for either yet).
 const SEARCHABLE_COLUMNS = [
   "legal_name",
+  "gstin",
   "trade_name",
   "pan",
   "entity_type",
@@ -65,7 +64,7 @@ export default function ClientSearch({ firmId, onSelect, placeholder }: ClientSe
       const { data, error } = await supabase
         .from("clients")
         .select(
-          "id, legal_name, trade_name, pan, entity_type, registered_address, state, pincode, signatory_name, signatory_designation, signatory_contact, notes"
+          "id, legal_name, gstin, trade_name, pan, entity_type, registered_address, state, pincode, signatory_name, signatory_designation, signatory_contact, notes"
         )
         .eq("firm_id", firmId)
         .or(orFilter)
@@ -126,7 +125,7 @@ export default function ClientSearch({ firmId, onSelect, placeholder }: ClientSe
               >
                 <p className="text-sm font-medium text-ink-950">{client.legal_name}</p>
                 <p className="text-xs text-ink-500">
-                  {[client.trade_name, client.pan, client.state].filter(Boolean).join(" · ") || "—"}
+                  {[client.trade_name, client.gstin, client.pan, client.state].filter(Boolean).join(" · ") || "—"}
                 </p>
               </button>
             ))
