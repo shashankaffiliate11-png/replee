@@ -318,41 +318,74 @@ app.post("/webhooks/gmail", async (req, res) => {
 
     for (const item of histories) {
       for (const msgAdded of item.messagesAdded || []) {
-        const msg = await gmail.users.messages.get({ userId: "me", id: msgAdded.message.id });
+        // Isolate each message: an error processing ONE email (bad PDF,
+        // Gmail API hiccup, etc.) must never stop the others from being
+        // processed, and must never prevent last_history_id from advancing
+        // below — otherwise the same broken message gets replayed forever
+        // on every future push, which is exactly what happened here.
+        try {
+          const msg = await gmail.users.messages.get({ userId: "me", id: msgAdded.message.id });
 
-        const headers = msg.data.payload.headers || [];
-        const fromHeader = headers.find((h) => h.name.toLowerCase() === "from")?.value || "";
-        const subjectHeader = headers.find((h) => h.name.toLowerCase() === "subject")?.value || "";
+          const headers = msg.data.payload.headers || [];
+          const fromHeader = headers.find((h) => h.name.toLowerCase() === "from")?.value || "";
+          const subjectHeader = headers.find((h) => h.name.toLowerCase() === "subject")?.value || "";
 
-        const isTaxSender = /gst\.gov\.in|incometax\.gov\.in|tdscpc\.gov\.in/i.test(fromHeader);
-        const isTaxSubject = /Notice|ASMT|DRC|142\(1\)|148|DIN|TRACES/i.test(subjectHeader);
+          const isTaxSender = /gst\.gov\.in|incometax\.gov\.in|tdscpc\.gov\.in/i.test(fromHeader);
+          const isTaxSubject = /Notice|ASMT|DRC|142\(1\)|148|DIN|TRACES/i.test(subjectHeader);
 
-        if (!isTaxSender && !isTaxSubject) continue;
+          if (!isTaxSender && !isTaxSubject) continue;
 
-        console.log(`[Tax Notice Detected] ${subjectHeader}`);
+          console.log(`[Tax Notice Detected] ${subjectHeader}`);
 
-        const parts = msg.data.payload.parts || [];
-        for (const part of parts) {
-          if (!part.filename || !part.filename.toLowerCase().endsWith(".pdf")) continue;
+          const parts = msg.data.payload.parts || [];
+          for (const part of parts) {
+            if (!part.filename || !part.filename.toLowerCase().endsWith(".pdf")) continue;
 
-          const attachment = await gmail.users.messages.attachments.get({
-            userId: "me",
-            messageId: msg.data.id,
-            id: part.body.attachmentId,
-          });
+            const attachment = await gmail.users.messages.attachments.get({
+              userId: "me",
+              messageId: msg.data.id,
+              id: part.body.attachmentId,
+            });
 
-          const pdfBuffer = Buffer.from(attachment.data.data, "base64url");
-          const parsedPdf = await pdfParse(pdfBuffer);
-          const noticeText = parsedPdf.text?.trim() || "(No extractable text in attached PDF)";
+            const pdfBuffer = Buffer.from(attachment.data.data, "base64url");
 
-          // Using the 'gemini-flash-latest' alias instead of a dated model
-          // ID — Google maintains this to always point at their current
-          // recommended flash model and re-points it automatically as
-          // specific model IDs retire, avoiding this exact class of failure
-          // (gemini-1.5-flash already retired; gemini-2.5-flash is next,
-          // no earlier than Oct 16, 2026).
-          const model = getGenAI().getGenerativeModel({ model: "gemini-flash-latest" });
-          const prompt = `You are an expert Indian Chartered Accountant assistant.
+            // A malformed/non-standard PDF (bad XRef table, etc.) will make
+            // pdf-parse throw even though the file opens fine in a normal
+            // viewer. Rather than losing the notice entirely, still save it
+            // and upload the original PDF, flagged for manual review — a CA
+            // seeing SOMETHING on the Dashboard beats the notice silently
+            // vanishing.
+            let noticeText = null;
+            let pdfParseFailed = false;
+            try {
+              const parsedPdf = await pdfParse(pdfBuffer);
+              noticeText = parsedPdf.text?.trim() || "(No extractable text in attached PDF)";
+            } catch (pdfErr) {
+              console.error(`[PDF Parse Error] ${part.filename}:`, pdfErr.message);
+              pdfParseFailed = true;
+            }
+
+            let parsedJson;
+            if (pdfParseFailed) {
+              parsedJson = {
+                firmName: null,
+                gstin: null,
+                pan: null,
+                signatoryName: null,
+                noticeType: "Unclassified",
+                summaryOfDemandOrMismatch:
+                  "This PDF could not be read automatically (its internal format wasn't readable by our parser). The original file has still been saved below — please open and review it manually.",
+                draftedReply: null,
+              };
+            } else {
+              // Using the 'gemini-flash-latest' alias instead of a dated
+              // model ID — Google maintains this to always point at their
+              // current recommended flash model and re-points it
+              // automatically as specific model IDs retire, avoiding this
+              // exact class of failure (gemini-1.5-flash already retired;
+              // gemini-2.5-flash is next, no earlier than Oct 16, 2026).
+              const model = getGenAI().getGenerativeModel({ model: "gemini-flash-latest" });
+              const prompt = `You are an expert Indian Chartered Accountant assistant.
 Analyze the following official tax notice text and extract details as strict JSON, no markdown wrapping:
 {
   "firmName": "Firm or Business Name of taxpayer, if present, else null",
@@ -371,25 +404,25 @@ Analyze the following official tax notice text and extract details as strict JSO
 Notice Text:
 "${noticeText}"`;
 
-          let parsedJson;
-          try {
-            const result = await model.generateContent(prompt);
-            const raw = result.response.text().replace(/```json|```/g, "").trim();
-            parsedJson = JSON.parse(raw);
-          } catch (aiErr) {
-            console.error("[Gemini parse error]:", aiErr.message);
-            parsedJson = {
-              firmName: null,
-              gstin: null,
-              pan: null,
-              signatoryName: null,
-              noticeType: "Unclassified",
-              summaryOfDemandOrMismatch: "Automatic parsing failed — please review the attached PDF manually.",
-              draftedReply: null,
-            };
-          }
+              try {
+                const result = await model.generateContent(prompt);
+                const raw = result.response.text().replace(/```json|```/g, "").trim();
+                parsedJson = JSON.parse(raw);
+              } catch (aiErr) {
+                console.error("[Gemini parse error]:", aiErr.message);
+                parsedJson = {
+                  firmName: null,
+                  gstin: null,
+                  pan: null,
+                  signatoryName: null,
+                  noticeType: "Unclassified",
+                  summaryOfDemandOrMismatch: "Automatic parsing failed — please review the attached PDF manually.",
+                  draftedReply: null,
+                };
+              }
+            }
 
-          let matchedClientId = null;
+            let matchedClientId = null;
           let matchedClientName = null;
 
           const extractedGstin = parsedJson.gstin ? String(parsedJson.gstin).trim().toUpperCase() : null;
@@ -442,7 +475,7 @@ Notice Text:
               pan_number: extractedPan,
               signatory_name: parsedJson.signatoryName || null,
               notice_type: parsedJson.noticeType || "Unclassified",
-              original_notice_text: noticeText,
+              original_notice_text: noticeText || "(PDF could not be parsed automatically — see the attached file)",
               drafted_reply: parsedJson.draftedReply || null,
               ai_draft_response: parsedJson.draftedReply || null,
               generated_response: parsedJson.draftedReply || null,
@@ -467,6 +500,9 @@ Notice Text:
           } else {
             console.log("[Notice Saved]", msg.data.id);
           }
+          }
+        } catch (msgErr) {
+          console.error(`[Message Processing Error] ${msgAdded.message.id}:`, msgErr.message);
         }
       }
     }
