@@ -7,6 +7,7 @@ export default function OnboardClient() {
   const { user } = useAuth();
 
   const [legalName, setLegalName] = useState("");
+  const [gstNumber, setGstNumber] = useState("");
   const [tradeName, setTradeName] = useState("");
   const [pan, setPan] = useState("");
   const [entityType, setEntityType] = useState("");
@@ -54,6 +55,7 @@ export default function OnboardClient() {
       // Only fill fields the extractor actually found — never blank out
       // something the CA may have already typed with a null.
       if (data?.legal_name) setLegalName(data.legal_name);
+      if (data?.gstin) setGstNumber(data.gstin);
       if (data?.trade_name) setTradeName(data.trade_name);
       if (data?.pan) setPan(data.pan);
       if (data?.entity_type) setEntityType(data.entity_type);
@@ -92,6 +94,7 @@ export default function OnboardClient() {
       const { error: dbError } = await (supabase.from("clients" as any) as any).insert({
         firm_id: user.id,
         legal_name: legalName,
+        gstin: gstNumber.trim().toUpperCase() || null,
         trade_name: tradeName || null,
         pan: pan || null,
         entity_type: entityType || null,
@@ -110,6 +113,7 @@ export default function OnboardClient() {
       
       // Reset form fields
       setLegalName("");
+      setGstNumber("");
       setTradeName("");
       setPan("");
       setEntityType("");
@@ -200,6 +204,19 @@ export default function OnboardClient() {
                   placeholder="ABC Traders Pvt Ltd"
                   value={legalName}
                   onChange={(e) => setLegalName(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-ink-900 uppercase tracking-wide mb-0.5">
+                  GST NUMBER
+                </label>
+                <input
+                  type="text"
+                  className="input w-full uppercase"
+                  placeholder="27ABCDE1234F1Z5"
+                  value={gstNumber}
+                  onChange={(e) => setGstNumber(e.target.value)}
                 />
               </div>
 

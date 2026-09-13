@@ -81,6 +81,7 @@ Return strictly valid JSON, with no markdown code fences and no text before or a
   "legal_name": string | null,
   "trade_name": string | null,
   "pan": string | null,
+  "gstin": string | null,
   "entity_type": string | null,
   "registered_address": string | null,
   "state": string | null,
