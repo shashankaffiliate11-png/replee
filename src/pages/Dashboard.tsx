@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   ShieldCheck,
@@ -41,6 +41,8 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [clients, setClients] = useState<any[]>([]);
 
+  const loadRef = useRef<(() => void) | null>(null);
+
   const [loading, setLoading] = useState(true);
   const [resyncing, setResyncing] = useState(false);
   const [resyncResult, setResyncResult] = useState<{ ok: boolean; message: string } | null>(null);
@@ -61,6 +63,7 @@ export default function Dashboard() {
         setResyncResult({ ok: false, message: data.error || "Resync failed." });
       } else {
         setResyncResult({ ok: true, message: "Watch is active." });
+        loadRef.current?.(); // pull any newly landed notices right away
       }
     } catch (err: any) {
       setResyncResult({ ok: false, message: err.message || "Resync failed." });
@@ -71,9 +74,18 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!user) return;
-    const periodMonth = `${new Date().toISOString().slice(0, 7)}-01`;
+
+    loadRef.current = load;
+    load();
+    // Poll every 30 seconds so newly landed notices show up without
+    // requiring a manual page reload. Cheap enough at this scale (a handful
+    // of lightweight count/select queries), and keeps the "live inbox" feel
+    // the product is promising.
+    const intervalId = setInterval(load, 30_000);
+    return () => clearInterval(intervalId);
 
     async function load() {
+      const periodMonth = `${new Date().toISOString().slice(0, 7)}-01`;
       try {
         const [
           { data: profileData },
