@@ -12,6 +12,7 @@ import {
   Headset,
   Menu,
   X,
+  ShieldCheck,
 } from "lucide-react";
 import ContactSupportModal from "./ContactSupportModal";
 import { useAuth } from "../context/AuthContext";
@@ -33,6 +34,7 @@ export default function AppShell({ children }: AppShellProps) {
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [isAdminUser, setIsAdminUser] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -54,6 +56,22 @@ export default function AppShell({ children }: AppShellProps) {
     }
 
     loadSidebarData();
+
+    // Admin Portal visibility — only shown to admin_users members. This is
+    // a convenience check for the nav item only; the actual page and every
+    // /api/admin/* endpoint independently re-verify the role server-side,
+    // so hiding/showing this link is not itself a security boundary.
+    (async () => {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      try {
+        const res = await fetch("/api/admin/me", { headers: { Authorization: `Bearer ${token}` } });
+        const json = await res.json();
+        setIsAdminUser(Boolean(json.role));
+      } catch {
+        setIsAdminUser(false);
+      }
+    })();
   }, [user]);
 
   const plan = profile ? getPlan(profile.plan) : null;
@@ -66,6 +84,7 @@ export default function AppShell({ children }: AppShellProps) {
     { label: "Onboard Client", path: "/app/onboard-client", icon: UserPlus },
     { label: "History", path: "/app/history", icon: HistoryIcon },
     { label: "Settings", path: "/app/settings", icon: SettingsIcon },
+    ...(isAdminUser ? [{ label: "Admin Portal", path: "/app/admin", icon: ShieldCheck }] : []),
   ];
 
   const initials = (profile?.full_name || user?.email || "?")

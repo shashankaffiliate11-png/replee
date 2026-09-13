@@ -17,6 +17,7 @@ import ClientDetail from "./pages/ClientDetail";
 import NoticePreview from "./pages/NoticePreview";
 import Blog from "./pages/Blog";
 import BlogPost from "./pages/BlogPost";
+import AdminPortal from "./pages/AdminPortal";
 
 export default function App() {
   return (
@@ -101,6 +102,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <Settings />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/app/admin"
+        element={
+          <ProtectedRoute>
+            <AdminPortal />
           </ProtectedRoute>
         }
       />

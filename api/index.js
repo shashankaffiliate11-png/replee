@@ -554,6 +554,287 @@ app.get("/api/notices", async (req, res) => {
 });
 
 // ============================================================================
+// ADMIN PORTAL
+// Role-gated: Reader (view only), Editor (edit subscribers), Admin (full
+// access, including managing who else has admin access). Membership lives
+// in admin_users, keyed by email — see the 0006_admin_portal.sql migration.
+// ============================================================================
+
+// Computes a subscriber's plan expiry the same way the Admin Portal design
+// specifies: +30 days from the start date for monthly, +365 for yearly.
+// FREE TRIAL never expires this way, so it returns null.
+function computeExpiry(plan, billingCycle, startDate) {
+  if (!startDate || plan === "free_trial") return null;
+  const d = new Date(startDate);
+  if (isNaN(d.getTime())) return null;
+  const days = billingCycle === "yearly" ? 365 : 30;
+  d.setDate(d.getDate() + days);
+  return d.toISOString().split("T")[0];
+}
+
+// Looks up the signed-in user's admin role, or null if they're not an
+// admin-panel member at all. Every /api/admin/* route calls this first.
+async function requireAdminRole(req, res, minRole) {
+  const user = await requireUser(req, res);
+  if (!user) return null;
+
+  const { data: adminRow } = await getSupabaseAdmin()
+    .from("admin_users")
+    .select("role")
+    .eq("email", (user.email || "").toLowerCase())
+    .maybeSingle();
+
+  if (!adminRow) {
+    res.status(403).json({ error: "You don't have access to the Admin Portal." });
+    return null;
+  }
+
+  const ROLE_RANK = { Reader: 1, Editor: 2, Admin: 3 };
+  if (minRole && ROLE_RANK[adminRow.role] < ROLE_RANK[minRole]) {
+    res.status(403).json({ error: `This action requires ${minRole} access. You have ${adminRow.role} access.` });
+    return null;
+  }
+
+  return { user, role: adminRow.role };
+}
+
+// ── Who am I, admin-wise? Used by the frontend to decide whether to show
+//    the "Admin Portal" nav item at all. ──────────────────────────────────
+app.get("/api/admin/me", async (req, res) => {
+  const user = await requireUser(req, res);
+  if (!user) return;
+
+  const { data: adminRow } = await getSupabaseAdmin()
+    .from("admin_users")
+    .select("role")
+    .eq("email", (user.email || "").toLowerCase())
+    .maybeSingle();
+
+  return res.status(200).json({ role: adminRow?.role ?? null });
+});
+
+// ── Dashboard metrics ────────────────────────────────────────────────────
+app.get("/api/admin/dashboard", async (req, res) => {
+  const ctx = await requireAdminRole(req, res, "Reader");
+  if (!ctx) return;
+
+  const { data: profiles, error } = await getSupabaseAdmin()
+    .from("profiles")
+    .select("plan, billing_cycle, subscription_start_date, created_at");
+
+  if (error) {
+    return res.status(500).json({ error: "Failed to load dashboard data." });
+  }
+
+  const PLAN_PRICE_INR = { free_trial: 0, starter: 999, professional: 2499 };
+  let totalSubscribers = profiles.length;
+  let active = 0;
+  let expired = 0;
+  let monthly = 0;
+  let yearly = 0;
+  let mrr = 0;
+  const planCounts = { free_trial: 0, starter: 0, professional: 0 };
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  for (const p of profiles) {
+    planCounts[p.plan] = (planCounts[p.plan] ?? 0) + 1;
+
+    if (p.plan === "free_trial") {
+      active += 1;
+      continue;
+    }
+
+    if (p.billing_cycle === "yearly") yearly += 1;
+    else monthly += 1;
+
+    const expiry = computeExpiry(p.plan, p.billing_cycle, p.subscription_start_date);
+    const isActive = !expiry || new Date(expiry) >= today;
+    if (isActive) {
+      active += 1;
+      // MRR approximation: yearly plans contribute 1/12th of their annual
+      // value; monthly plans contribute their full monthly price.
+      const price = PLAN_PRICE_INR[p.plan] ?? 0;
+      mrr += p.billing_cycle === "yearly" ? Math.round((price * 12) / 12) : price;
+    } else {
+      expired += 1;
+    }
+  }
+
+  return res.status(200).json({
+    totalSubscribers,
+    active,
+    expired,
+    monthly,
+    yearly,
+    mrr,
+    planCounts,
+  });
+});
+
+// ── Subscribers: list ────────────────────────────────────────────────────
+app.get("/api/admin/subscribers", async (req, res) => {
+  const ctx = await requireAdminRole(req, res, "Reader");
+  if (!ctx) return;
+
+  const admin = getSupabaseAdmin();
+
+  const { data: profiles, error: profilesError } = await admin
+    .from("profiles")
+    .select("id, full_name, firm_name, plan, billing_cycle, subscription_start_date, created_at")
+    .order("created_at", { ascending: false });
+
+  if (profilesError) {
+    return res.status(500).json({ error: "Failed to load subscribers." });
+  }
+
+  // Emails live on auth.users, not profiles — the admin API is the only
+  // way to list them, since RLS otherwise never lets one user see another
+  // user's row in auth.users.
+  const { data: usersPage, error: usersError } = await admin.auth.admin.listUsers({ perPage: 1000 });
+  if (usersError) {
+    return res.status(500).json({ error: "Failed to load user emails." });
+  }
+  const emailById = new Map(usersPage.users.map((u) => [u.id, u.email]));
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const subscribers = profiles.map((p) => {
+    const expiryDate = computeExpiry(p.plan, p.billing_cycle, p.subscription_start_date);
+    const status = p.plan === "free_trial" ? "Active" : !expiryDate || new Date(expiryDate) >= today ? "Active" : "Expired";
+    return {
+      id: p.id,
+      email: emailById.get(p.id) ?? "—",
+      name: p.full_name || p.firm_name || "—",
+      plan: p.plan,
+      billingCycle: p.billing_cycle,
+      startDate: p.subscription_start_date,
+      expiryDate,
+      status,
+    };
+  });
+
+  return res.status(200).json({ subscribers });
+});
+
+// ── Subscribers: edit plan / billing cycle / start date ─────────────────
+app.put("/api/admin/subscribers/:id", async (req, res) => {
+  const ctx = await requireAdminRole(req, res, "Editor");
+  if (!ctx) return;
+
+  const { plan, billingCycle, startDate } = req.body || {};
+  const VALID_PLANS = ["free_trial", "starter", "professional"];
+  const VALID_CYCLES = ["monthly", "yearly"];
+
+  if (plan && !VALID_PLANS.includes(plan)) {
+    return res.status(400).json({ error: "Invalid plan." });
+  }
+  if (billingCycle && !VALID_CYCLES.includes(billingCycle)) {
+    return res.status(400).json({ error: "Invalid billing cycle." });
+  }
+
+  const update = {};
+  if (plan) update.plan = plan;
+  if (billingCycle) update.billing_cycle = billingCycle;
+  if (startDate !== undefined) update.subscription_start_date = startDate || null;
+
+  const { error } = await getSupabaseAdmin().from("profiles").update(update).eq("id", req.params.id);
+
+  if (error) {
+    console.error("[Admin] Failed to update subscriber:", error.message);
+    return res.status(500).json({ error: "Failed to update subscriber." });
+  }
+
+  return res.status(200).json({ success: true });
+});
+
+// ── User Access: list admin-panel members ───────────────────────────────
+app.get("/api/admin/users", async (req, res) => {
+  const ctx = await requireAdminRole(req, res, "Reader");
+  if (!ctx) return;
+
+  const { data, error } = await getSupabaseAdmin()
+    .from("admin_users")
+    .select("id, email, role, created_at")
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    return res.status(500).json({ error: "Failed to load admin users." });
+  }
+
+  return res.status(200).json({ users: data, currentUserEmail: (ctx.user.email || "").toLowerCase() });
+});
+
+// ── User Access: add a new admin-panel member ────────────────────────────
+app.post("/api/admin/users", async (req, res) => {
+  const ctx = await requireAdminRole(req, res, "Admin");
+  if (!ctx) return;
+
+  const { email, role } = req.body || {};
+  if (!email || !["Reader", "Editor", "Admin"].includes(role)) {
+    return res.status(400).json({ error: "A valid email and role (Reader, Editor, or Admin) are required." });
+  }
+
+  const { error } = await getSupabaseAdmin()
+    .from("admin_users")
+    .insert({ email: email.toLowerCase().trim(), role });
+
+  if (error) {
+    if (error.code === "23505") {
+      return res.status(409).json({ error: "That email already has admin access." });
+    }
+    return res.status(500).json({ error: "Failed to add user." });
+  }
+
+  return res.status(200).json({ success: true });
+});
+
+// ── User Access: change someone's role ───────────────────────────────────
+app.put("/api/admin/users/:id", async (req, res) => {
+  const ctx = await requireAdminRole(req, res, "Admin");
+  if (!ctx) return;
+
+  const { role } = req.body || {};
+  if (!["Reader", "Editor", "Admin"].includes(role)) {
+    return res.status(400).json({ error: "Invalid role." });
+  }
+
+  const { error } = await getSupabaseAdmin().from("admin_users").update({ role }).eq("id", req.params.id);
+
+  if (error) {
+    return res.status(500).json({ error: "Failed to update role." });
+  }
+
+  return res.status(200).json({ success: true });
+});
+
+// ── User Access: remove an admin-panel member ────────────────────────────
+app.delete("/api/admin/users/:id", async (req, res) => {
+  const ctx = await requireAdminRole(req, res, "Admin");
+  if (!ctx) return;
+
+  const { data: target } = await getSupabaseAdmin()
+    .from("admin_users")
+    .select("email")
+    .eq("id", req.params.id)
+    .maybeSingle();
+
+  if (target && target.email === (ctx.user.email || "").toLowerCase()) {
+    return res.status(400).json({ error: "You can't remove your own admin access." });
+  }
+
+  const { error } = await getSupabaseAdmin().from("admin_users").delete().eq("id", req.params.id);
+
+  if (error) {
+    return res.status(500).json({ error: "Failed to remove user." });
+  }
+
+  return res.status(200).json({ success: true });
+});
+
+// ============================================================================
 // GLOBAL ERROR HANDLER
 // ============================================================================
 app.use((err, req, res, next) => {
