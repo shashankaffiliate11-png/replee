@@ -42,6 +42,32 @@ export default function Dashboard() {
   const [clients, setClients] = useState<any[]>([]);
 
   const [loading, setLoading] = useState(true);
+  const [resyncing, setResyncing] = useState(false);
+  const [resyncResult, setResyncResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  async function handleResync() {
+    if (!user) return;
+    setResyncing(true);
+    setResyncResult(null);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      const response = await fetch("/api/gmail/resync", {
+        method: "POST",
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setResyncResult({ ok: false, message: data.error || "Resync failed." });
+      } else {
+        setResyncResult({ ok: true, message: "Watch is active." });
+      }
+    } catch (err: any) {
+      setResyncResult({ ok: false, message: err.message || "Resync failed." });
+    } finally {
+      setResyncing(false);
+    }
+  }
 
   useEffect(() => {
     if (!user) return;
@@ -273,19 +299,27 @@ export default function Dashboard() {
                   <Sparkles size={17} />
                 </div>
                 <div>
-                  <h2 className="text-sm font-semibold text-ink-950">Your Notice Inbox</h2>
+                  <h2 className="text-sm font-semibold text-ink-950">
+                    Your Notice Inbox
+                    {automatedNotices.length > 0 && (
+                      <Link to="/app/history" className="ml-2 text-xs font-medium text-brass-dark hover:underline">
+                        View All →
+                      </Link>
+                    )}
+                  </h2>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                {!loading && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-accent-green-tint px-2.5 py-1 text-xs font-medium text-accent-green">
-                    <CheckCircle2 size={13} /> {totalClients} Client{totalClients === 1 ? "" : "s"} Onboarded
-                  </span>
-                )}
-                {automatedNotices.length > 0 && (
-                  <Link to="/app/history" className="text-xs font-medium text-brass-dark hover:underline whitespace-nowrap">
-                    View All →
-                  </Link>
+              <div className="flex flex-col items-end gap-1">
+                <button
+                  type="button"
+                  onClick={handleResync}
+                  disabled={resyncing}
+                  className="rounded border border-paper-line px-3 py-1.5 text-xs font-medium text-ink-700 hover:bg-paper-dim disabled:opacity-50"
+                >
+                  {resyncing ? "Checking…" : "Resync now"}
+                </button>
+                {resyncResult && (
+                  <p className={`text-xs ${resyncResult.ok ? "text-ok" : "text-warn"}`}>{resyncResult.message}</p>
                 )}
               </div>
             </div>
