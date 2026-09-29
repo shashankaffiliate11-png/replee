@@ -9,6 +9,7 @@ import NoticeDetail from "./pages/NoticeDetail";
 import History from "./pages/History";
 import PricingPage from "./pages/PricingPage";
 import Settings from "./pages/Settings";
+import ReferFriend from "./pages/ReferFriend";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -102,6 +103,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <Settings />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/app/refer"
+        element={
+          <ProtectedRoute>
+            <ReferFriend />
           </ProtectedRoute>
         }
       />

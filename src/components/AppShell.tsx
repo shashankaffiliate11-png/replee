@@ -270,6 +270,24 @@ export default function AppShell({ children }: AppShellProps) {
           </div>
         </header>
 
+        {/* Refer & Earn — Starter plan only. Sits right below the header,
+            aligned under the account/profile area above it. */}
+        {plan?.code === "starter" && (
+          <div className="flex justify-end px-4 pt-3 lg:px-8">
+            <div className="text-right">
+              <Link
+                to="/app/refer"
+                className="inline-block animate-pulse rounded-lg bg-brass px-4 py-2 text-xs font-bold uppercase tracking-wide text-white shadow-sm hover:bg-brass-dark"
+              >
+                Refer your CA Friend
+              </Link>
+              <p className="mt-1 text-[11px] text-ink-500">
+                Refer and earn 5 FREE Response Generations
+              </p>
+            </div>
+          </div>
+        )}
+
         <main className="flex-1 px-4 pb-4 pt-3 lg:px-8 lg:pb-8 lg:pt-4">{children}</main>
       </div>
 

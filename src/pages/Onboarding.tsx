@@ -21,13 +21,20 @@ export default function Onboarding() {
     // Referral capture — set by LandingPage.tsx if this user arrived via a
     // ?ref= link. This is the real "new account" moment, not the OAuth
     // redirect, so it's handled here rather than in AuthCallback.
+    //
+    // Referrals only work for referrers on the Starter plan — a code from
+    // a Free Trial or Professional referrer is treated as invalid (no
+    // signup bonus, no referrals row), rather than just hiding the referral
+    // UI for them, since a hidden UI wouldn't stop the link itself from
+    // still working mechanically.
     const refCode = sessionStorage.getItem("nd_ref");
     let referredBy: string | null = null;
 
     if (refCode) {
       const { data: referrer } = await (supabase.from("profiles") as any)
-        .select("id")
+        .select("id, plan")
         .eq("referral_code", refCode)
+        .eq("plan", "starter")
         .neq("id", user.id) // can't refer yourself
         .maybeSingle();
       if (referrer) referredBy = referrer.id;
